@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getMenu, updateMenu, updateSections, listTemplates, getPlateStackStatus, getPlateStackDishes, getPlateStackTags, exportPdf } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
@@ -42,6 +42,32 @@ export default function MenuEditor() {
   const [exporting, setExporting] = useState(false);
   const [collapsedCats, setCollapsedCats] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const lastPinchDist = useRef(null);
+
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastPinchDist.current = Math.hypot(dx, dy);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && lastPinchDist.current !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const delta = dist / lastPinchDist.current;
+      lastPinchDist.current = dist;
+      setPreviewZoom((z) => Math.min(2, Math.max(0.3, z * delta)));
+      e.preventDefault();
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    lastPinchDist.current = null;
+  }, []);
 
   const {
     saveStatus,
@@ -135,14 +161,12 @@ export default function MenuEditor() {
 
   // Add dish to section
   const handleAddDish = async (sectionIndex) => {
-    const name = prompt('Dish name:');
-    if (!name?.trim()) return;
     const sections = [...menu.sections];
     const section = { ...sections[sectionIndex] };
     section.dishes = [
       ...section.dishes,
       {
-        name: name.trim(),
+        name: 'New Dish',
         description: '',
         price: '0',
         sort_order: section.dishes.length,
@@ -442,23 +466,16 @@ export default function MenuEditor() {
                       key={dish.id || di}
                       className="mb-3 border border-gray-200 rounded-lg p-3"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700 truncate flex items-center gap-1">
-                          {dish.platestack_dish_id && (
-                            <svg className="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          {dish.name}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveDish(si, di)}
-                          className="text-gray-300 hover:text-red-500 text-base min-h-[44px] min-w-[32px] flex items-center justify-center"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                      <div className="flex gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={dish.name}
+                          onChange={(e) => {
+                            handleFieldEdit('dish', dish.id, 'name', e.target.value, section.id);
+                          }}
+                          className="flex-1 min-w-0 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                          placeholder="Dish name"
+                        />
                         <input
                           type="text"
                           value={dish.price === '0' ? '' : dish.price || ''}
@@ -468,6 +485,12 @@ export default function MenuEditor() {
                           className="w-20 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           placeholder="Price"
                         />
+                        <button
+                          onClick={() => handleRemoveDish(si, di)}
+                          className="text-gray-300 hover:text-red-500 text-lg min-h-[44px] min-w-[32px] flex items-center justify-center flex-shrink-0"
+                        >
+                          &times;
+                        </button>
                       </div>
                       <textarea
                         value={dish.description || ''}
@@ -630,17 +653,25 @@ export default function MenuEditor() {
 
       {/* Preview Canvas */}
       <div
-        className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-18 lg:pt-8"
+        className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
         style={{
           backgroundImage:
             'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
           backgroundSize: '20px 20px',
-          paddingTop: undefined,
         }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Spacer for mobile top bar */}
         <div className="h-14 lg:hidden" />
-        <div className="overflow-x-auto">
+        <div
+          style={{
+            transform: `scale(${previewZoom})`,
+            transformOrigin: 'top center',
+            transition: lastPinchDist.current !== null ? 'none' : 'transform 0.15s ease',
+          }}
+        >
           <MenuPreview
             menu={menu}
             template={template}
@@ -649,6 +680,30 @@ export default function MenuEditor() {
             onFieldEdit={handleFieldEdit}
           />
         </div>
+      </div>
+
+      {/* Zoom controls — visible on mobile/tablet */}
+      <div className="fixed bottom-4 right-4 z-20 flex flex-col gap-2 lg:hidden">
+        <button
+          onClick={() => setPreviewZoom((z) => Math.min(2, z + 0.15))}
+          className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-lg font-bold text-gray-700 active:bg-gray-100"
+        >
+          +
+        </button>
+        <button
+          onClick={() => setPreviewZoom((z) => Math.max(0.3, z - 0.15))}
+          className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-lg font-bold text-gray-700 active:bg-gray-100"
+        >
+          −
+        </button>
+        {previewZoom !== 1 && (
+          <button
+            onClick={() => setPreviewZoom(1)}
+            className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-xs font-medium text-gray-500 active:bg-gray-100"
+          >
+            1:1
+          </button>
+        )}
       </div>
 
       {/* PlateStack Import Modal */}
