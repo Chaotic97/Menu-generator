@@ -1,6 +1,6 @@
 export default {
   id: "modernist",
-  name: "Modernist",
+  name: "Gridline",
   description: "Typography-forward. Clean white bg, stark black text, Swiss-style precision.",
   category: "minimal",
   previewColors: ["#FFFFFF", "#111111", "#777777"],

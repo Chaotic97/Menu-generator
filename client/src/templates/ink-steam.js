@@ -1,6 +1,6 @@
 export default {
   id: "ink-steam",
-  name: "Clean Slate",
+  name: "Blanc",
   description: "Minimalist restraint. Maximum whitespace, dramatic simplicity.",
   category: "minimal",
   previewColors: ["#FAFAF8", "#1A1A1A", "#999999"],

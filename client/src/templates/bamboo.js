@@ -1,7 +1,7 @@
 export default {
   id: "bamboo",
-  name: "Garden",
-  description: "Organic and natural. Earthy greens, warm paper tone, clean but warm.",
+  name: "Terroir",
+  description: "Organic and grounded. Earthy greens, warm paper tone, clean but warm.",
   category: "natural",
   previewColors: ["#F4F1E8", "#5A7C3A", "#2C3E2D"],
   starterSections: ["Appetizers", "Mains", "Vegetables & Sides", "Desserts"],

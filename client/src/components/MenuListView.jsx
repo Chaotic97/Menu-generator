@@ -17,7 +17,7 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
-function MenuThumbnail({ menuId, themeId }) {
+function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0' }) {
   const [fullMenu, setFullMenu] = useState(null);
   const template = clientTemplates[themeId] || Object.values(clientTemplates)[0];
 
@@ -45,7 +45,7 @@ function MenuThumbnail({ menuId, themeId }) {
         height: '200px',
         overflow: 'hidden',
         position: 'relative',
-        borderRadius: '8px 8px 0 0',
+        borderRadius,
       }}
     >
       <div
@@ -123,7 +123,7 @@ export default function MenuListView() {
               className="bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors group overflow-hidden flex"
             >
               <div className="flex-shrink-0 w-64">
-                <MenuThumbnail menuId={mostRecent.id} themeId={mostRecent.theme_id} />
+                <MenuThumbnail menuId={mostRecent.id} themeId={mostRecent.theme_id} borderRadius="8px 0 0 8px" />
               </div>
               <div className="flex-1 min-w-0 p-5 flex flex-col justify-center">
                 <h3 className="font-semibold text-gray-900 text-lg truncate">
@@ -235,16 +235,18 @@ export default function MenuListView() {
             </div>
           )}
 
-          {menus.length === 0 && !showCreate ? (
-            <div className="text-center py-20 text-gray-400">
-              <p className="text-lg">No menus yet</p>
-              <p className="text-sm mt-1">
-                Create your first menu to get started
-              </p>
-            </div>
+          {menus.filter((m) => !mostRecent || m.id !== mostRecent.id).length === 0 && !showCreate ? (
+            menus.length === 0 ? (
+              <div className="text-center py-20 text-gray-400">
+                <p className="text-lg">No menus yet</p>
+                <p className="text-sm mt-1">
+                  Create your first menu to get started
+                </p>
+              </div>
+            ) : null
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {menus.map((menu) => (
+              {menus.filter((m) => !mostRecent || m.id !== mostRecent.id).map((menu) => (
                 <div
                   key={menu.id}
                   onClick={() => navigate(`/menus/${menu.id}`)}

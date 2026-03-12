@@ -1,7 +1,7 @@
 export default {
   id: "silk-road",
-  name: "Spice Editorial",
-  description: "Modern editorial. Warm spice tones. Magazine layout influence.",
+  name: "Saffron",
+  description: "Modern editorial. Warm spice tones, magazine layout influence.",
   category: "editorial",
   previewColors: ["#FAF4EC", "#C45D2C", "#2A1F17"],
   starterSections: ["To Begin", "Mains", "From the Grill", "Sides", "To Finish"],

@@ -1,7 +1,7 @@
 export default {
   id: "brasserie",
   name: "Brasserie",
-  description: "Warm Parisian bistro. Cream bg, deep burgundy accents, classic serif typography.",
+  description: "Warm Parisian bistro. Cream bg, deep burgundy, refined serif with clean sans body.",
   category: "classic",
   previewColors: ["#FAF6F0", "#722F37", "#2C2420"],
   starterSections: ["Appetizers", "Mains", "Sides", "Desserts"],
@@ -16,14 +16,14 @@ export default {
   fonts: {
     title: "'Cormorant Garamond', serif",
     heading: "'Cormorant Garamond', serif",
-    body: "'EB Garamond', serif",
-    price: "'EB Garamond', serif",
+    body: "'Source Sans 3', sans-serif",
+    price: "'Source Sans 3', sans-serif",
     imports: [
       "Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400",
-      "EB+Garamond:ital,wght@0,400;0,500;1,400",
+      "Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,400",
     ],
   },
-  sizes: { title: 34, subtitle: 12, section: 15, dish: 15, desc: 12, price: 15 },
+  sizes: { title: 36, subtitle: 12, section: 14, dish: 15, desc: 12, price: 15 },
   spacing: { sectionGap: 28, dishGap: 14, pagePadding: 44, headerBottom: 32, descTop: 3 },
   typography: {
     titleWeight: 600,

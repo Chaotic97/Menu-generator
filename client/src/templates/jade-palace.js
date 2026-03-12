@@ -1,7 +1,7 @@
 export default {
   id: "jade-palace",
-  name: "Emerald Grand",
-  description: "Formal elegance. Dark jade green bg, gold accents, ornamental dividers.",
+  name: "Evergreen",
+  description: "Formal elegance. Deep jade bg, warm gold accents, ornamental dividers.",
   category: "formal",
   previewColors: ["#0C2E1F", "#D4A54A", "#F0E6D0"],
   starterSections: ["Appetizers", "Soups", "Mains", "Sides", "Desserts"],
