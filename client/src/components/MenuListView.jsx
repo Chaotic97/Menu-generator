@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listMenus, createMenu, deleteMenu, listTemplates } from '../api/menus.js';
+import { listMenus, createMenu, deleteMenu, listTemplates, getMenu } from '../api/menus.js';
+import MenuPreview from './MenuPreview.jsx';
+import clientTemplates from '../templates/index.js';
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -15,17 +17,51 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
-function ColorSwatches({ colors }) {
-  if (!colors || colors.length === 0) return null;
+function MenuThumbnail({ menuId, themeId }) {
+  const [fullMenu, setFullMenu] = useState(null);
+  const template = clientTemplates[themeId] || Object.values(clientTemplates)[0];
+
+  useEffect(() => {
+    getMenu(menuId).then(setFullMenu);
+  }, [menuId]);
+
+  if (!fullMenu || !template) {
+    return (
+      <div
+        className="bg-gray-100 rounded-lg"
+        style={{ height: '200px' }}
+      />
+    );
+  }
+
+  const isMultiCol = fullMenu.layout && fullMenu.layout !== 'single';
+  const previewWidth = isMultiCol ? 660 : 500;
+  const scale = 0.38;
+
   return (
-    <div className="flex gap-0.5">
-      {colors.map((c, i) => (
-        <div
-          key={i}
-          className="h-2 flex-1 rounded-sm"
-          style={{ backgroundColor: c }}
+    <div
+      style={{
+        width: '100%',
+        height: '200px',
+        overflow: 'hidden',
+        position: 'relative',
+        borderRadius: '8px 8px 0 0',
+      }}
+    >
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: `${previewWidth}px`,
+          pointerEvents: 'none',
+        }}
+      >
+        <MenuPreview
+          menu={fullMenu}
+          template={template}
+          mode="export"
         />
-      ))}
+      </div>
     </div>
   );
 }
@@ -33,7 +69,6 @@ function ColorSwatches({ colors }) {
 export default function MenuListView() {
   const [menus, setMenus] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [templateMap, setTemplateMap] = useState({});
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('jade-palace');
@@ -41,17 +76,7 @@ export default function MenuListView() {
 
   useEffect(() => {
     listMenus().then(setMenus);
-    listTemplates().then((ts) => {
-      setTemplates(ts);
-      const map = {};
-      ts.forEach((t) => {
-        map[t.id] = {
-          name: t.name,
-          colors: JSON.parse(t.preview_colors || '[]'),
-        };
-      });
-      setTemplateMap(map);
-    });
+    listTemplates().then(setTemplates);
   }, []);
 
   const handleCreate = async () => {
@@ -71,7 +96,6 @@ export default function MenuListView() {
   };
 
   const mostRecent = menus[0];
-  const getColors = (themeId) => templateMap[themeId]?.colors || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -96,18 +120,12 @@ export default function MenuListView() {
             </h2>
             <div
               onClick={() => navigate(`/menus/${mostRecent.id}`)}
-              className="p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors flex items-center gap-5"
+              className="bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors group overflow-hidden flex"
             >
-              <div className="flex-shrink-0 w-24 h-14 rounded-lg overflow-hidden flex gap-0.5">
-                {getColors(mostRecent.theme_id).map((c, i) => (
-                  <div
-                    key={i}
-                    className="flex-1"
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
+              <div className="flex-shrink-0 w-64">
+                <MenuThumbnail menuId={mostRecent.id} themeId={mostRecent.theme_id} />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 p-5 flex flex-col justify-center">
                 <h3 className="font-semibold text-gray-900 text-lg truncate">
                   {mostRecent.name}
                 </h3>
@@ -116,9 +134,9 @@ export default function MenuListView() {
                     {mostRecent.restaurant_name}
                   </p>
                 )}
-              </div>
-              <div className="text-sm text-gray-400 flex-shrink-0">
-                {timeAgo(mostRecent.updated_at)}
+                <div className="mt-2 text-sm text-gray-400">
+                  {timeAgo(mostRecent.updated_at)}
+                </div>
               </div>
             </div>
           </div>
@@ -154,34 +172,50 @@ export default function MenuListView() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Template
                 </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {templates.map((t) => {
-                    const colors = JSON.parse(t.preview_colors || '[]');
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => setSelectedTemplate(t.id)}
-                        className={`p-2 rounded-lg border-2 transition-colors ${
-                          selectedTemplate === t.id
-                            ? 'border-gray-900'
-                            : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                      >
-                        <div className="flex gap-0.5 mb-1">
-                          {colors.map((c, i) => (
-                            <div
-                              key={i}
-                              className="h-4 flex-1 rounded-sm"
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
+                <div className="space-y-2">
+                  {(() => {
+                    const catLabels = { formal: 'Formal', classic: 'Classic', minimal: 'Minimal', natural: 'Natural', editorial: 'Editorial' };
+                    const catOrder = ['formal', 'classic', 'minimal', 'natural', 'editorial'];
+                    const grouped = {};
+                    templates.forEach((t) => {
+                      const cat = t.category || 'other';
+                      (grouped[cat] = grouped[cat] || []).push(t);
+                    });
+                    return catOrder.filter((c) => grouped[c]?.length).map((cat) => (
+                      <div key={cat}>
+                        <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{catLabels[cat] || cat}</div>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
+                          {grouped[cat].map((t) => {
+                            const colors = JSON.parse(t.preview_colors || '[]');
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setSelectedTemplate(t.id)}
+                                className={`p-2 rounded-lg border-2 transition-colors ${
+                                  selectedTemplate === t.id
+                                    ? 'border-gray-900'
+                                    : 'border-gray-200 hover:border-gray-400'
+                                }`}
+                              >
+                                <div className="flex gap-0.5 mb-1">
+                                  {colors.map((c, i) => (
+                                    <div
+                                      key={i}
+                                      className="h-4 flex-1 rounded-sm"
+                                      style={{ backgroundColor: c }}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="text-xs text-gray-600 truncate">
+                                  {t.name}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
-                        <div className="text-xs text-gray-600 truncate">
-                          {t.name}
-                        </div>
-                      </button>
-                    );
-                  })}
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -216,16 +250,7 @@ export default function MenuListView() {
                   onClick={() => navigate(`/menus/${menu.id}`)}
                   className="bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors group overflow-hidden"
                 >
-                  {/* Color swatch bar */}
-                  <div className="flex h-2">
-                    {getColors(menu.theme_id).map((c, i) => (
-                      <div
-                        key={i}
-                        className="flex-1"
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
+                  <MenuThumbnail menuId={menu.id} themeId={menu.theme_id} />
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0">
@@ -245,7 +270,7 @@ export default function MenuListView() {
                         &times;
                       </button>
                     </div>
-                    <div className="mt-3 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-gray-400">
                       {timeAgo(menu.updated_at)}
                     </div>
                   </div>

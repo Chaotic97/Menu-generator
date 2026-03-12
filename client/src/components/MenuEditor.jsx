@@ -40,6 +40,7 @@ export default function MenuEditor() {
   const [psSelected, setPsSelected] = useState(new Set());
   const [psLoading, setPsLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [collapsedCats, setCollapsedCats] = useState({});
 
   const {
     saveStatus,
@@ -91,9 +92,9 @@ export default function MenuEditor() {
     await updateMenu(id, { theme_id: templateId });
   };
 
-  // Toggle layout
-  const handleLayoutToggle = async () => {
-    const newLayout = menu.layout === 'single' ? 'two-col' : 'single';
+  // Change layout
+  const handleLayoutChange = async (newLayout) => {
+    if (menu.layout === newLayout) return;
     setMenu((prev) => ({ ...prev, layout: newLayout }));
     await updateMenu(id, { layout: newLayout });
   };
@@ -467,69 +468,102 @@ export default function MenuEditor() {
             </div>
           ) : (
             <div>
-              {/* Template Grid */}
+              {/* Template Grid — grouped by category */}
               <label className="block text-xs font-medium text-gray-500 mb-2">
                 Template
               </label>
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {templateList.map((t) => {
-                  const colors = JSON.parse(t.preview_colors || '[]');
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => handleTemplateSwitch(t.id)}
-                      className={`p-2 rounded-lg border-2 text-left transition-colors ${
-                        menu.theme_id === t.id
-                          ? 'border-gray-900'
-                          : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      <div className="flex gap-0.5 mb-1">
-                        {colors.map((c, i) => (
-                          <div
-                            key={i}
-                            className="h-3 flex-1 rounded-sm"
-                            style={{ backgroundColor: c }}
-                          />
-                        ))}
+              <div className="mb-6 space-y-1">
+                {(() => {
+                  const catLabels = { formal: 'Formal', classic: 'Classic', minimal: 'Minimal', natural: 'Natural', editorial: 'Editorial' };
+                  const catOrder = ['formal', 'classic', 'minimal', 'natural', 'editorial'];
+                  const grouped = {};
+                  templateList.forEach((t) => {
+                    const cat = t.category || 'other';
+                    (grouped[cat] = grouped[cat] || []).push(t);
+                  });
+                  return catOrder.filter((c) => grouped[c]?.length).map((cat) => {
+                    const isOpen = !collapsedCats[cat];
+                    const hasActive = grouped[cat].some((t) => t.id === menu.theme_id);
+                    return (
+                      <div key={cat}>
+                        <button
+                          onClick={() => setCollapsedCats((prev) => ({ ...prev, [cat]: !prev[cat] }))}
+                          className={`w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors ${hasActive && !isOpen ? 'text-gray-900' : 'text-gray-500'}`}
+                        >
+                          <span className="uppercase tracking-wider">{catLabels[cat] || cat}</span>
+                          <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                            <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <div className="grid grid-cols-2 gap-1.5 mt-1 mb-2 ml-1">
+                            {grouped[cat].map((t) => {
+                              const colors = JSON.parse(t.preview_colors || '[]');
+                              return (
+                                <button
+                                  key={t.id}
+                                  onClick={() => handleTemplateSwitch(t.id)}
+                                  className={`p-2 rounded-lg border-2 text-left transition-colors ${
+                                    menu.theme_id === t.id
+                                      ? 'border-gray-900'
+                                      : 'border-gray-200 hover:border-gray-400'
+                                  }`}
+                                >
+                                  <div className="flex gap-0.5 mb-1">
+                                    {colors.map((c, i) => (
+                                      <div
+                                        key={i}
+                                        className="h-3 flex-1 rounded-sm"
+                                        style={{ backgroundColor: c }}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="text-xs text-gray-600 truncate">
+                                    {t.name}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-600 truncate">
-                        {t.name}
-                      </div>
-                    </button>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
 
-              {/* Layout Toggle */}
+              {/* Layout Selector */}
               <label className="block text-xs font-medium text-gray-500 mb-2">
                 Layout
               </label>
-              <div className="flex gap-2 mb-6">
-                <button
-                  onClick={() =>
-                    menu.layout !== 'single' && handleLayoutToggle()
-                  }
-                  className={`flex-1 py-2 text-sm rounded-lg border-2 ${
-                    menu.layout === 'single'
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-400'
-                  }`}
-                >
-                  Single
-                </button>
-                <button
-                  onClick={() =>
-                    menu.layout !== 'two-col' && handleLayoutToggle()
-                  }
-                  className={`flex-1 py-2 text-sm rounded-lg border-2 ${
-                    menu.layout === 'two-col'
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-400'
-                  }`}
-                >
-                  Two Column
-                </button>
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {[
+                  { id: 'single', label: 'Single', icon: (
+                    <div className="flex justify-center"><div className="w-6 h-8 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-60" /><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-40" /><div className="w-full h-1 bg-current rounded-sm opacity-30" /></div></div>
+                  )},
+                  { id: 'two-col', label: 'Two Column', icon: (
+                    <div className="flex justify-center gap-0.5"><div className="w-3 h-8 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-60" /><div className="w-full h-1 bg-current rounded-sm opacity-40" /></div><div className="w-3 h-8 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-60" /><div className="w-full h-1 bg-current rounded-sm opacity-40" /></div></div>
+                  )},
+                  { id: 'featured', label: 'Featured', icon: (
+                    <div className="flex flex-col items-center"><div className="w-6 h-3 border border-current rounded-sm p-0.5 mb-0.5"><div className="w-full h-1 bg-current rounded-sm opacity-60" /></div><div className="flex gap-0.5"><div className="w-3 h-4 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm opacity-40" /></div><div className="w-3 h-4 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm opacity-40" /></div></div></div>
+                  )},
+                  { id: 'sidebar', label: 'Sidebar', icon: (
+                    <div className="flex justify-center gap-0.5"><div className="w-4 h-8 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-60" /><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-40" /><div className="w-full h-1 bg-current rounded-sm opacity-30" /></div><div className="w-2.5 h-8 border border-current rounded-sm p-0.5"><div className="w-full h-1 bg-current rounded-sm mb-0.5 opacity-50" /><div className="w-full h-1 bg-current rounded-sm opacity-30" /></div></div>
+                  )},
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handleLayoutChange(opt.id)}
+                    className={`py-2 px-1 text-xs rounded-lg border-2 flex flex-col items-center gap-1 ${
+                      menu.layout === opt.id
+                        ? 'border-gray-900 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {opt.icon}
+                    <span>{opt.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}

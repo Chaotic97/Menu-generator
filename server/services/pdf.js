@@ -245,8 +245,9 @@ function renderSection(section, template, isFirst) {
 // Build full HTML page for PDF rendering
 function buildHtml(menu, template) {
   const { colors, fonts, sizes, spacing, typography, layout } = template;
-  const isTwoCol = menu.layout === 'two-col';
-  const menuWidth = isTwoCol ? 660 : 500;
+  const menuLayout = menu.layout || 'single';
+  const isMultiCol = menuLayout !== 'single';
+  const menuWidth = isMultiCol ? 660 : 500;
   const fontUrl = buildFontUrl(fonts.imports);
 
   // Filter and sort visible sections
@@ -270,7 +271,7 @@ function buildHtml(menu, template) {
   let bodyHtml;
   if (visibleSections.length === 0) {
     bodyHtml = `<div style="text-align:center;padding:60px 20px;font-family:${fonts.body};font-size:${sizes.dish}px;color:${colors.muted}">No items</div>`;
-  } else if (isTwoCol) {
+  } else if (menuLayout === 'two-col') {
     const [col1, col2] = balanceColumns(visibleSections, spacing);
     const col1Html = col1.map((s, i) => renderSection(s, template, i === 0)).join('');
     const col2Html = col2.map((s, i) => renderSection(s, template, i === 0)).join('');
@@ -278,6 +279,32 @@ function buildHtml(menu, template) {
       <div style="flex:1">${col1Html}</div>
       <div style="width:1px;background:${colors.divider};flex-shrink:0"></div>
       <div style="flex:1">${col2Html}</div>
+    </div>`;
+  } else if (menuLayout === 'featured') {
+    const featuredSection = visibleSections[0];
+    const rest = visibleSections.slice(1);
+    const featuredHtml = renderSection(featuredSection, template, true);
+    const [col1, col2] = balanceColumns(rest, spacing);
+    const col1Html = col1.map((s, i) => renderSection(s, template, i === 0)).join('');
+    const col2Html = col2.map((s, i) => renderSection(s, template, i === 0)).join('');
+    bodyHtml = `<div>
+      <div style="margin-bottom:${spacing.sectionGap}px">${featuredHtml}</div>
+      ${rest.length > 0 ? `<div style="display:flex;gap:30px">
+        <div style="flex:1">${col1Html}</div>
+        <div style="width:1px;background:${colors.divider};flex-shrink:0"></div>
+        <div style="flex:1">${col2Html}</div>
+      </div>` : ''}
+    </div>`;
+  } else if (menuLayout === 'sidebar') {
+    const splitAt = Math.max(1, Math.ceil(visibleSections.length * 0.6));
+    const col1 = visibleSections.slice(0, splitAt);
+    const col2 = visibleSections.slice(splitAt);
+    const col1Html = col1.map((s, i) => renderSection(s, template, i === 0)).join('');
+    const col2Html = col2.map((s, i) => renderSection(s, template, i === 0)).join('');
+    bodyHtml = `<div style="display:flex;gap:30px">
+      <div style="flex:3">${col1Html}</div>
+      ${col2.length > 0 ? `<div style="width:1px;background:${colors.divider};flex-shrink:0"></div>
+      <div style="flex:2">${col2Html}</div>` : ''}
     </div>`;
   } else {
     bodyHtml = `<div>${visibleSections.map((s, i) => renderSection(s, template, i === 0)).join('')}</div>`;

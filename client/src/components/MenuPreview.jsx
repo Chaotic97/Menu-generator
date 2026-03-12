@@ -612,8 +612,9 @@ export default function MenuPreview({
   const fontUrl = buildFontUrl(template.fonts.imports);
 
   const { colors, fonts, sizes, spacing, typography, layout } = template;
-  const isTwoCol = menu.layout === 'two-col';
-  const menuWidth = isTwoCol ? 660 : 500;
+  const menuLayout = menu.layout || 'single';
+  const isMultiCol = menuLayout !== 'single';
+  const menuWidth = isMultiCol ? 660 : 500;
   const interactive = mode === 'edit' && !!onSectionsChange;
 
   // Inject hover styles for drag handles
@@ -649,9 +650,25 @@ export default function MenuPreview({
   // Section IDs for sortable context
   const sectionIds = allSections.map((s) => `section-${s.id}`);
 
-  // Build columns for two-col layout
+  // Build columns for multi-column layouts
   const displaySections = visibleSections.filter((s) => s.dishes && s.dishes.length > 0);
-  const [col1, col2] = isTwoCol ? balanceColumns(displaySections, spacing) : [displaySections, []];
+
+  let col1 = displaySections;
+  let col2 = [];
+  let featuredSection = null;
+
+  if (menuLayout === 'two-col') {
+    [col1, col2] = balanceColumns(displaySections, spacing);
+  } else if (menuLayout === 'featured') {
+    featuredSection = displaySections[0] || null;
+    const rest = displaySections.slice(1);
+    [col1, col2] = balanceColumns(rest, spacing);
+  } else if (menuLayout === 'sidebar') {
+    // Wider left (first ~70% of sections), narrow right (rest)
+    const splitAt = Math.max(1, Math.ceil(displaySections.length * 0.6));
+    col1 = displaySections.slice(0, splitAt);
+    col2 = displaySections.slice(splitAt);
+  }
 
   // ── DnD handlers ───────────────────────────────────────
 
@@ -984,11 +1001,36 @@ export default function MenuPreview({
             }}>
               Add your first section to get started
             </div>
-          ) : isTwoCol ? (
+          ) : menuLayout === 'two-col' ? (
             <div style={{ display: 'flex', gap: '30px' }}>
               <div style={{ flex: 1 }}>{renderColumn(col1)}</div>
               <div style={{ width: '1px', background: colors.divider, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>{renderColumn(col2)}</div>
+            </div>
+          ) : menuLayout === 'featured' ? (
+            <div>
+              {featuredSection && (
+                <div style={{ marginBottom: `${spacing.sectionGap}px` }}>
+                  {renderColumn([featuredSection])}
+                </div>
+              )}
+              {(col1.length > 0 || col2.length > 0) && (
+                <div style={{ display: 'flex', gap: '30px' }}>
+                  <div style={{ flex: 1 }}>{renderColumn(col1)}</div>
+                  <div style={{ width: '1px', background: colors.divider, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>{renderColumn(col2)}</div>
+                </div>
+              )}
+            </div>
+          ) : menuLayout === 'sidebar' ? (
+            <div style={{ display: 'flex', gap: '30px' }}>
+              <div style={{ flex: 3 }}>{renderColumn(col1)}</div>
+              {col2.length > 0 && (
+                <>
+                  <div style={{ width: '1px', background: colors.divider, flexShrink: 0 }} />
+                  <div style={{ flex: 2 }}>{renderColumn(col2)}</div>
+                </>
+              )}
             </div>
           ) : (
             <div>{renderColumn(interactive ? allSections : visibleSections)}</div>
