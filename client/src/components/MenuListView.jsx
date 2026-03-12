@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listMenus, createMenu, deleteMenu, listTemplates, getMenu } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
@@ -17,55 +17,43 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
-function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0' }) {
+function MenuThumbnail({ menuId, themeId }) {
   const [fullMenu, setFullMenu] = useState(null);
-  const containerRef = useRef(null);
-  const [containerWidth, setContainerWidth] = useState(0);
   const template = clientTemplates[themeId] || Object.values(clientTemplates)[0];
 
   useEffect(() => {
     getMenu(menuId).then(setFullMenu);
   }, [menuId]);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
-  }, []);
-
   if (!fullMenu || !template) {
     return (
       <div
-        className="bg-gray-100 rounded-lg"
-        style={{ height: '200px' }}
-        ref={containerRef}
+        className="rounded-t-xl"
+        style={{ height: '180px', background: template ? template.colors.bg : '#f3f4f6' }}
       />
     );
   }
 
   const isMultiCol = fullMenu.layout && fullMenu.layout !== 'single';
   const previewWidth = isMultiCol ? 660 : 500;
-  const scale = containerWidth > 0 ? containerWidth / previewWidth : 0.38;
 
   return (
     <div
-      ref={containerRef}
       style={{
         width: '100%',
-        height: `${Math.round(previewWidth * scale * 0.6)}px`,
+        height: '180px',
         overflow: 'hidden',
         position: 'relative',
-        borderRadius,
         background: template.colors.bg,
       }}
     >
       <div
         style={{
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
+          transform: 'scale(0.38)',
+          transformOrigin: 'top center',
           width: `${previewWidth}px`,
           pointerEvents: 'none',
+          margin: '0 auto',
         }}
       >
         <MenuPreview
@@ -113,7 +101,7 @@ export default function MenuListView() {
     <div className="min-h-screen bg-gray-50">
       {/* Hero */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-16 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
             MenuForge
           </h1>
@@ -123,7 +111,7 @@ export default function MenuListView() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {/* Continue Editing */}
         {mostRecent && (
           <div className="mb-10">
@@ -180,7 +168,7 @@ export default function MenuListView() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900"
                 autoFocus
               />
               <div className="mb-4">
@@ -282,7 +270,7 @@ export default function MenuListView() {
                       </div>
                       <button
                         onClick={(e) => handleDelete(menu.id, e)}
-                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                        className="text-gray-300 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
                       >
                         &times;
                       </button>

@@ -41,6 +41,7 @@ export default function MenuEditor() {
   const [psLoading, setPsLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [collapsedCats, setCollapsedCats] = useState({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
     saveStatus,
@@ -318,24 +319,45 @@ export default function MenuEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-gray-100 flex relative">
+      {/* Mobile sidebar overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
+      <div className={`
+        fixed inset-y-0 left-0 z-40 w-80 bg-white border-r border-gray-200 flex flex-col overflow-y-auto
+        transform transition-transform duration-200 ease-in-out
+        lg:relative lg:translate-x-0 lg:z-auto
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
-          <button
-            onClick={() => navigate('/')}
-            className="text-sm text-gray-500 hover:text-gray-900 mb-2 block"
-          >
-            &larr; All Menus
-          </button>
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => navigate('/')}
+              className="text-sm text-gray-500 hover:text-gray-900 min-h-[44px] flex items-center"
+            >
+              &larr; All Menus
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center lg:hidden"
+            >
+              &times;
+            </button>
+          </div>
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900 truncate">{menu.name}</h2>
             <SaveIndicator status={saveStatus} />
             <button
               onClick={handleExportPdf}
               disabled={exporting}
-              className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-shrink-0 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
               {exporting ? 'Exporting...' : 'Export PDF'}
             </button>
@@ -346,7 +368,7 @@ export default function MenuEditor() {
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('dishes')}
-            className={`flex-1 py-2 text-sm font-medium ${
+            className={`flex-1 py-3 text-sm font-medium min-h-[44px] ${
               activeTab === 'dishes'
                 ? 'text-gray-900 border-b-2 border-gray-900'
                 : 'text-gray-500 hover:text-gray-700'
@@ -356,7 +378,7 @@ export default function MenuEditor() {
           </button>
           <button
             onClick={() => setActiveTab('style')}
-            className={`flex-1 py-2 text-sm font-medium ${
+            className={`flex-1 py-3 text-sm font-medium min-h-[44px] ${
               activeTab === 'style'
                 ? 'text-gray-900 border-b-2 border-gray-900'
                 : 'text-gray-500 hover:text-gray-700'
@@ -381,7 +403,7 @@ export default function MenuEditor() {
                   onChange={(e) =>
                     handleMetaChange('restaurant_name', e.target.value)
                   }
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900"
                   placeholder="Restaurant name"
                 />
               </div>
@@ -393,21 +415,21 @@ export default function MenuEditor() {
                   type="text"
                   value={menu.subtitle || ''}
                   onChange={(e) => handleMetaChange('subtitle', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900"
                   placeholder="e.g. Dinner Menu"
                 />
               </div>
 
-              {/* Sections — read-only mirror of current order */}
+              {/* Sections */}
               {(menu.sections || []).sort((a, b) => a.sort_order - b.sort_order).map((section, si) => (
-                <div key={section.id || si} className="mb-4">
+                <div key={section.id || si} className="mb-5">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-semibold text-gray-700">
                       {section.name}
                     </h4>
                     <button
                       onClick={() => handleRemoveSection(si)}
-                      className="text-xs text-gray-400 hover:text-red-500"
+                      className="text-xs text-gray-400 hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-end"
                     >
                       Remove
                     </button>
@@ -418,32 +440,49 @@ export default function MenuEditor() {
                   {(section.dishes || []).sort((a, b) => a.sort_order - b.sort_order).map((dish, di) => (
                     <div
                       key={dish.id || di}
-                      className="flex items-center justify-between py-1 text-sm group"
+                      className="mb-3 border border-gray-200 rounded-lg p-3"
                     >
-                      <span className="text-gray-600 truncate mr-2 flex items-center gap-1">
-                        {dish.platestack_dish_id && (
-                          <svg className="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        {dish.name}
-                      </span>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-gray-400 text-xs">
-                          {formatPrice(dish.price) || '—'}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700 truncate flex items-center gap-1">
+                          {dish.platestack_dish_id && (
+                            <svg className="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          {dish.name}
                         </span>
                         <button
                           onClick={() => handleRemoveDish(si, di)}
-                          className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-xs"
+                          className="text-gray-300 hover:text-red-500 text-base min-h-[44px] min-w-[32px] flex items-center justify-center"
                         >
                           &times;
                         </button>
                       </div>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={dish.price === '0' ? '' : dish.price || ''}
+                          onChange={(e) => {
+                            handleFieldEdit('dish', dish.id, 'price', e.target.value || '0', section.id);
+                          }}
+                          className="w-20 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                          placeholder="Price"
+                        />
+                      </div>
+                      <textarea
+                        value={dish.description || ''}
+                        onChange={(e) => {
+                          handleFieldEdit('dish', dish.id, 'description', e.target.value, section.id);
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded resize-none focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        placeholder="Description (optional)"
+                        rows={2}
+                      />
                     </div>
                   ))}
                   <button
                     onClick={() => handleAddDish(si)}
-                    className="mt-1 text-xs text-gray-500 hover:text-gray-900"
+                    className="mt-1 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] flex items-center"
                   >
                     + Add dish
                   </button>
@@ -452,7 +491,7 @@ export default function MenuEditor() {
 
               <button
                 onClick={handleAddSection}
-                className="w-full py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-900"
+                className="w-full py-3 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-900 min-h-[44px]"
               >
                 + Add Section
               </button>
@@ -460,7 +499,7 @@ export default function MenuEditor() {
               {plateStackEnabled && (
                 <button
                   onClick={handleOpenImport}
-                  className="w-full mt-2 py-2 text-sm text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:text-indigo-900 hover:bg-indigo-50"
+                  className="w-full mt-2 py-3 text-sm text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:text-indigo-900 hover:bg-indigo-50 min-h-[44px]"
                 >
                   Import from PlateStack
                 </button>
@@ -488,7 +527,7 @@ export default function MenuEditor() {
                       <div key={cat}>
                         <button
                           onClick={() => setCollapsedCats((prev) => ({ ...prev, [cat]: !prev[cat] }))}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors ${hasActive && !isOpen ? 'text-gray-900' : 'text-gray-500'}`}
+                          className={`w-full flex items-center justify-between px-2 py-2 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors min-h-[44px] ${hasActive && !isOpen ? 'text-gray-900' : 'text-gray-500'}`}
                         >
                           <span className="uppercase tracking-wider">{catLabels[cat] || cat}</span>
                           <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>
@@ -503,7 +542,7 @@ export default function MenuEditor() {
                                 <button
                                   key={t.id}
                                   onClick={() => handleTemplateSwitch(t.id)}
-                                  className={`p-2 rounded-lg border-2 text-left transition-colors ${
+                                  className={`p-2 rounded-lg border-2 text-left transition-colors min-h-[44px] ${
                                     menu.theme_id === t.id
                                       ? 'border-gray-900'
                                       : 'border-gray-200 hover:border-gray-400'
@@ -554,7 +593,7 @@ export default function MenuEditor() {
                   <button
                     key={opt.id}
                     onClick={() => handleLayoutChange(opt.id)}
-                    className={`py-2 px-1 text-xs rounded-lg border-2 flex flex-col items-center gap-1 ${
+                    className={`py-3 px-2 text-xs rounded-lg border-2 flex flex-col items-center gap-1 min-h-[44px] ${
                       menu.layout === opt.id
                         ? 'border-gray-900 bg-gray-50'
                         : 'border-gray-200 hover:border-gray-400'
@@ -570,43 +609,67 @@ export default function MenuEditor() {
         </div>
       </div>
 
+      {/* Mobile top bar */}
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 h-14 lg:hidden">
+        <button
+          onClick={() => navigate('/')}
+          className="text-sm text-gray-500 hover:text-gray-900 min-h-[44px] flex items-center"
+        >
+          &larr; Back
+        </button>
+        <h2 className="font-semibold text-gray-900 truncate mx-2">{menu.name}</h2>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M3 5h14M3 10h14M3 15h14" />
+          </svg>
+        </button>
+      </div>
+
       {/* Preview Canvas */}
       <div
-        className="flex-1 overflow-y-auto p-8"
+        className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-18 lg:pt-8"
         style={{
           backgroundImage:
             'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
           backgroundSize: '20px 20px',
+          paddingTop: undefined,
         }}
       >
-        <MenuPreview
-          menu={menu}
-          template={template}
-          mode="edit"
-          onSectionsChange={handleSectionsChange}
-          onFieldEdit={handleFieldEdit}
-        />
+        {/* Spacer for mobile top bar */}
+        <div className="h-14 lg:hidden" />
+        <div className="overflow-x-auto">
+          <MenuPreview
+            menu={menu}
+            template={template}
+            mode="edit"
+            onSectionsChange={handleSectionsChange}
+            onFieldEdit={handleFieldEdit}
+          />
+        </div>
       </div>
 
       {/* PlateStack Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Import from PlateStack
               </h3>
               <button
                 onClick={() => setShowImportModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center text-xl"
               >
                 &times;
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
               {psLoading ? (
                 <div className="text-center text-gray-400 py-12">
                   Loading dishes...
@@ -632,12 +695,12 @@ export default function MenuEditor() {
                     );
                     return (
                       <div key={tag} className="mb-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <label className="flex items-center gap-3 mb-2 min-h-[44px] cursor-pointer">
                           <input
                             type="checkbox"
                             checked={allSelected}
                             onChange={() => handleToggleTagGroup(tag)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
                           <h4 className="text-sm font-semibold text-gray-700">
                             {tag}
@@ -645,18 +708,18 @@ export default function MenuEditor() {
                           <span className="text-xs text-gray-400">
                             ({tagDishes.length})
                           </span>
-                        </div>
-                        <div className="ml-6 space-y-1">
+                        </label>
+                        <div className="ml-8 space-y-0.5">
                           {tagDishes.map((dish) => (
                             <label
                               key={dish.id}
-                              className="flex items-start gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                              className="flex items-start gap-3 py-2 cursor-pointer hover:bg-gray-50 rounded px-1 min-h-[44px]"
                             >
                               <input
                                 type="checkbox"
                                 checked={psSelected.has(dish.id)}
                                 onChange={() => handleTogglePsDish(dish.id)}
-                                className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                className="mt-0.5 w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
@@ -696,7 +759,7 @@ export default function MenuEditor() {
                     );
                     return (
                       <div className="mb-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <label className="flex items-center gap-3 mb-2 min-h-[44px] cursor-pointer">
                           <input
                             type="checkbox"
                             checked={allSelected}
@@ -710,7 +773,7 @@ export default function MenuEditor() {
                                 return next;
                               });
                             }}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
                           <h4 className="text-sm font-semibold text-gray-700">
                             Uncategorized
@@ -718,18 +781,18 @@ export default function MenuEditor() {
                           <span className="text-xs text-gray-400">
                             ({untagged.length})
                           </span>
-                        </div>
-                        <div className="ml-6 space-y-1">
+                        </label>
+                        <div className="ml-8 space-y-0.5">
                           {untagged.map((dish) => (
                             <label
                               key={dish.id}
-                              className="flex items-start gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                              className="flex items-start gap-3 py-2 cursor-pointer hover:bg-gray-50 rounded px-1 min-h-[44px]"
                             >
                               <input
                                 type="checkbox"
                                 checked={psSelected.has(dish.id)}
                                 onChange={() => handleTogglePsDish(dish.id)}
-                                className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                className="mt-0.5 w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
@@ -762,7 +825,7 @@ export default function MenuEditor() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-gray-200">
               <span className="text-sm text-gray-500">
                 {psSelected.size} dish{psSelected.size !== 1 ? 'es' : ''}{' '}
                 selected
@@ -770,14 +833,14 @@ export default function MenuEditor() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowImportModal(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImportSelected}
                   disabled={psSelected.size === 0}
-                  className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Import Selected
                 </button>
@@ -789,4 +852,3 @@ export default function MenuEditor() {
     </div>
   );
 }
-
