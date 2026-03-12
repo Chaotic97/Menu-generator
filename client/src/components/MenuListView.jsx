@@ -17,7 +17,7 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
-function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0', fullHeight = false }) {
+function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0' }) {
   const [fullMenu, setFullMenu] = useState(null);
   const template = clientTemplates[themeId] || Object.values(clientTemplates)[0];
 
@@ -25,26 +25,24 @@ function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0', fullHeig
     getMenu(menuId).then(setFullMenu);
   }, [menuId]);
 
-  const height = fullHeight ? '320px' : '200px';
-
   if (!fullMenu || !template) {
     return (
       <div
         className="bg-gray-100 rounded-lg"
-        style={{ height }}
+        style={{ height: '200px' }}
       />
     );
   }
 
   const isMultiCol = fullMenu.layout && fullMenu.layout !== 'single';
   const previewWidth = isMultiCol ? 660 : 500;
-  const scale = fullHeight ? 0.55 : 0.38;
+  const scale = 0.38;
 
   return (
     <div
       style={{
         width: '100%',
-        height,
+        height: '200px',
         overflow: 'hidden',
         position: 'relative',
         borderRadius,
@@ -122,19 +120,24 @@ export default function MenuListView() {
             </h2>
             <div
               onClick={() => navigate(`/menus/${mostRecent.id}`)}
-              className="bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors group overflow-hidden relative"
+              className="bg-white rounded-xl border border-gray-200 hover:border-gray-400 cursor-pointer transition-colors group overflow-hidden"
+              style={{ maxWidth: '320px' }}
             >
-              <MenuThumbnail menuId={mostRecent.id} themeId={mostRecent.theme_id} borderRadius="12px" fullHeight />
-              <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/60 to-transparent">
-                <h3 className="font-semibold text-white text-lg truncate">
-                  {mostRecent.name}
-                </h3>
-                {mostRecent.restaurant_name && (
-                  <p className="text-sm text-white/70 truncate">
-                    {mostRecent.restaurant_name}
-                  </p>
-                )}
-                <div className="mt-1 text-sm text-white/50">
+              <MenuThumbnail menuId={mostRecent.id} themeId={mostRecent.theme_id} />
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">
+                      {mostRecent.name}
+                    </h3>
+                    {mostRecent.restaurant_name && (
+                      <p className="text-sm text-gray-500 truncate">
+                        {mostRecent.restaurant_name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">
                   {timeAgo(mostRecent.updated_at)}
                 </div>
               </div>
