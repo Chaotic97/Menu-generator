@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listMenus, createMenu, deleteMenu, listTemplates, getMenu } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
@@ -19,33 +19,45 @@ function timeAgo(dateStr) {
 
 function MenuThumbnail({ menuId, themeId, borderRadius = '8px 8px 0 0' }) {
   const [fullMenu, setFullMenu] = useState(null);
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const template = clientTemplates[themeId] || Object.values(clientTemplates)[0];
 
   useEffect(() => {
     getMenu(menuId).then(setFullMenu);
   }, [menuId]);
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
   if (!fullMenu || !template) {
     return (
       <div
         className="bg-gray-100 rounded-lg"
         style={{ height: '200px' }}
+        ref={containerRef}
       />
     );
   }
 
   const isMultiCol = fullMenu.layout && fullMenu.layout !== 'single';
   const previewWidth = isMultiCol ? 660 : 500;
-  const scale = 0.38;
+  const scale = containerWidth > 0 ? containerWidth / previewWidth : 0.38;
 
   return (
     <div
+      ref={containerRef}
       style={{
         width: '100%',
-        height: '200px',
+        height: `${Math.round(previewWidth * scale * 0.6)}px`,
         overflow: 'hidden',
         position: 'relative',
         borderRadius,
+        background: template.colors.bg,
       }}
     >
       <div
