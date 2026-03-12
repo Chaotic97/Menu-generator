@@ -1,12 +1,14 @@
 # MenuForge — Implementation Plan
 
-## Progress
+## Status: Core Complete
+
+All core functionality is built and working. The app is usable end-to-end.
 
 - [x] Phase 1: Core App Scaffold (steps 1-5)
 - [x] Phase 2: Menu Editor UI (drag-and-drop, inline editing, autosave)
 - [x] Phase 3: PDF Export (Puppeteer)
 - [x] Phase 4: PlateStack Integration (dish import)
-- [ ] Phase 5: Polish & Extended Features (allergen icons, QR code, etc.)
+- [ ] Phase 5: Polish & Extended Features (future work)
 
 ### What's Built (Phase 1)
 - Project scaffold: React/Vite client + Express/SQLite server with separate package.jsons
@@ -43,11 +45,15 @@
 - Link icon on imported dishes in sidebar
 - Graceful fallback when PlateStack is not configured
 
-### What's Next
-- Allergen icons on menu preview
-- QR code web menu
-- Duplicate menu, version history
-- Custom template builder
+### What's Next (Phase 5 — Future Work)
+- Allergen icons on menu preview (FDA Big 9, data already flows from PlateStack)
+- QR code web menu (shareable URL using `<MenuPreview mode="export">`)
+- Duplicate menu
+- Version history (last 10 saves, revert)
+- Multi-page support with auto page breaks
+- Custom template builder (override colors/fonts/spacing, save as new template)
+- Image support (logos, background images, dish photos)
+- Template marketplace (export/import as JSON)
 
 ---
 
@@ -952,4 +958,6 @@ Feed this to Claude Code as the plan. Recommended build order:
 11. ~~Menu list homepage (create, open, delete menus)~~ **DONE**
 12. ~~PDF export via Puppeteer — run the Print Fidelity Checklist against all 10 templates~~ **DONE**
 13. ~~PlateStack dish import~~ **DONE**
-14. Allergen icons
+14. Allergen icons (deferred to Phase 5 — data pipeline exists, rendering not yet implemented)
+
+**Status**: Steps 1-13 complete. The app is fully functional for creating, editing, and exporting restaurant menus. Phase 5 items are enhancements, not blockers.

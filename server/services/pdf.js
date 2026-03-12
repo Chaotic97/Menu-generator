@@ -338,10 +338,13 @@ export async function generatePdf(menu, template, options = {}) {
   const page = await b.newPage();
 
   try {
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 });
 
-    // Wait for Google Fonts to finish loading
-    await page.evaluate(() => document.fonts.ready);
+    // Wait for Google Fonts to finish loading (with timeout)
+    await Promise.race([
+      page.evaluate(() => document.fonts.ready),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Font loading timeout')), 10000)),
+    ]);
 
     const size = PAGE_SIZES[pageSize] || PAGE_SIZES.letter;
     const margin = bleed ? '0' : '0.25in';
@@ -357,6 +360,7 @@ export async function generatePdf(menu, template, options = {}) {
       },
       printBackground: true,
       preferCSSPageSize: false,
+      timeout: 30000,
     });
 
     return Buffer.from(pdfBuffer);
@@ -366,6 +370,13 @@ export async function generatePdf(menu, template, options = {}) {
 }
 
 // Cleanup on process exit
+export async function closeBrowser() {
+  if (browser) {
+    await browser.close().catch(() => {});
+    browser = null;
+  }
+}
+
 process.on('exit', () => {
   if (browser) browser.close().catch(() => {});
 });

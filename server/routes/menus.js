@@ -4,11 +4,15 @@ import db from '../db.js';
 const router = Router();
 
 // List all menus
-router.get('/', (req, res) => {
-  const menus = db.prepare(
-    'SELECT id, name, restaurant_name, theme_id, layout, updated_at FROM menus ORDER BY updated_at DESC'
-  ).all();
-  res.json(menus);
+router.get('/', (req, res, next) => {
+  try {
+    const menus = db.prepare(
+      'SELECT id, name, restaurant_name, theme_id, layout, updated_at FROM menus ORDER BY updated_at DESC'
+    ).all();
+    res.json(menus);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Create menu
@@ -63,60 +67,72 @@ router.post('/', (req, res) => {
 });
 
 // Get full menu with sections and dishes
-router.get('/:id', (req, res) => {
-  const menu = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
-  if (!menu) {
-    return res.status(404).json({ error: 'Menu not found' });
+router.get('/:id', (req, res, next) => {
+  try {
+    const menu = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+
+    const sections = db.prepare(
+      'SELECT * FROM menu_sections WHERE menu_id = ? ORDER BY sort_order'
+    ).all(menu.id);
+
+    const dishesStmt = db.prepare(
+      'SELECT * FROM menu_dishes WHERE section_id = ? ORDER BY sort_order'
+    );
+
+    const sectionsWithDishes = sections.map((section) => ({
+      ...section,
+      dishes: dishesStmt.all(section.id),
+    }));
+
+    res.json({ ...menu, sections: sectionsWithDishes });
+  } catch (err) {
+    next(err);
   }
-
-  const sections = db.prepare(
-    'SELECT * FROM menu_sections WHERE menu_id = ? ORDER BY sort_order'
-  ).all(menu.id);
-
-  const dishesStmt = db.prepare(
-    'SELECT * FROM menu_dishes WHERE section_id = ? ORDER BY sort_order'
-  );
-
-  const sectionsWithDishes = sections.map((section) => ({
-    ...section,
-    dishes: dishesStmt.all(section.id),
-  }));
-
-  res.json({ ...menu, sections: sectionsWithDishes });
 });
 
 // Update menu metadata
-router.put('/:id', (req, res) => {
-  const menu = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
-  if (!menu) {
-    return res.status(404).json({ error: 'Menu not found' });
+router.put('/:id', (req, res, next) => {
+  try {
+    const menu = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+
+    const { name, restaurant_name, subtitle, theme_id, layout, custom_overrides } = req.body;
+
+    db.prepare(`
+      UPDATE menus
+      SET name = COALESCE(?, name),
+          restaurant_name = COALESCE(?, restaurant_name),
+          subtitle = COALESCE(?, subtitle),
+          theme_id = COALESCE(?, theme_id),
+          layout = COALESCE(?, layout),
+          custom_overrides = COALESCE(?, custom_overrides),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(name, restaurant_name, subtitle, theme_id, layout, custom_overrides, req.params.id);
+
+    const updated = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    next(err);
   }
-
-  const { name, restaurant_name, subtitle, theme_id, layout, custom_overrides } = req.body;
-
-  db.prepare(`
-    UPDATE menus
-    SET name = COALESCE(?, name),
-        restaurant_name = COALESCE(?, restaurant_name),
-        subtitle = COALESCE(?, subtitle),
-        theme_id = COALESCE(?, theme_id),
-        layout = COALESCE(?, layout),
-        custom_overrides = COALESCE(?, custom_overrides),
-        updated_at = datetime('now')
-    WHERE id = ?
-  `).run(name, restaurant_name, subtitle, theme_id, layout, custom_overrides, req.params.id);
-
-  const updated = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
-  res.json(updated);
 });
 
 // Delete menu
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM menus WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) {
-    return res.status(404).json({ error: 'Menu not found' });
+router.delete('/:id', (req, res, next) => {
+  try {
+    const result = db.prepare('DELETE FROM menus WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
   }
-  res.json({ success: true });
 });
 
 // Bulk update sections + dishes (autosave endpoint)

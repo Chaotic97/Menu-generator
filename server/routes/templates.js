@@ -4,20 +4,28 @@ import db from '../db.js';
 const router = Router();
 
 // List all templates
-router.get('/', (req, res) => {
-  const templates = db.prepare(
-    'SELECT id, name, description, category, preview_colors, is_builtin FROM templates ORDER BY category, name'
-  ).all();
-  res.json(templates);
+router.get('/', (req, res, next) => {
+  try {
+    const templates = db.prepare(
+      'SELECT id, name, description, category, preview_colors, is_builtin FROM templates ORDER BY category, name'
+    ).all();
+    res.json(templates);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Get full template
-router.get('/:id', (req, res) => {
-  const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
-  if (!template) {
-    return res.status(404).json({ error: 'Template not found' });
+router.get('/:id', (req, res, next) => {
+  try {
+    const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json(template);
+  } catch (err) {
+    next(err);
   }
-  res.json(template);
 });
 
 // Create custom template
