@@ -3,10 +3,10 @@
 ## Progress
 
 - [x] Phase 1: Core App Scaffold (steps 1-5)
-- [ ] Phase 2: Menu Editor UI (drag-and-drop, inline editing, autosave)
-- [ ] Phase 3: PDF Export (Puppeteer)
-- [ ] Phase 4: PlateStack Integration
-- [ ] Phase 5: Polish & Extended Features
+- [x] Phase 2: Menu Editor UI (drag-and-drop, inline editing, autosave)
+- [x] Phase 3: PDF Export (Puppeteer)
+- [x] Phase 4: PlateStack Integration (dish import)
+- [ ] Phase 5: Polish & Extended Features (allergen icons, QR code, etc.)
 
 ### What's Built (Phase 1)
 - Project scaffold: React/Vite client + Express/SQLite server with separate package.jsons
@@ -18,11 +18,36 @@
 - `<MenuListView>` homepage with create/delete
 - `npm run dev` starts both servers concurrently
 
+### What's Built (Phase 2)
+- Drag-and-drop on preview via @dnd-kit: dish reorder within/across sections, section reorder via header drag
+- Inline click-to-edit on preview: all text elements (dish name, price, description, section name, title, subtitle)
+- Drag handles appear on hover (left edge), click-to-edit is separate (no drag/edit conflict)
+- `<EditableText>` component: transparent-background input inheriting template styles
+- Autosave with 800ms debounce via `useAutosave` hook, "Saving..."/"Saved" indicator
+- Immediate save for drag-and-drop reorders, debounced save for text edits
+- `mode="export"` strips all interactive chrome (no handles, no editable wrappers)
+
+### What's Built (Phase 3)
+- PDF export via Puppeteer (`server/services/pdf.js`)
+- Static HTML template replicating MenuPreview layout (not React SSR)
+- All divider styles, header decorations, dot leaders, two-col layout, borders
+- Google Fonts loaded via `<link>`, waits for `document.fonts.ready`
+- Page sizes: letter (8.5"x11"), half (5.5"x8.5"), bleed option
+- "Export PDF" button in editor sidebar
+
+### What's Built (Phase 4 - partial)
+- PlateStack dish import service (`server/services/platestack.js`)
+- Read-only connection to PlateStack's SQLite DB via `PLATESTACK_DB_PATH` env var
+- API routes: `/api/platestack/status`, `/api/platestack/dishes`, `/api/platestack/tags`
+- Import modal in editor: dishes grouped by tag, select all/individual, auto-creates sections
+- Link icon on imported dishes in sidebar
+- Graceful fallback when PlateStack is not configured
+
 ### What's Next
-- Drag-and-drop on preview (@dnd-kit)
-- Inline click-to-edit on preview
-- Autosave with debounce
-- PDF export via Puppeteer
+- Allergen icons on menu preview
+- QR code web menu
+- Duplicate menu, version history
+- Custom template builder
 
 ---
 
@@ -919,12 +944,12 @@ Feed this to Claude Code as the plan. Recommended build order:
 3. ~~Implement all 10 template config files in `/client/src/templates/` with auto-discovery index. Seed into DB on startup.~~ **DONE**
 4. ~~API routes (menu CRUD, bulk section update, template list)~~ **DONE**
 5. ~~`<MenuPreview>` component with full Layout Engine hardening~~ **DONE**
-6. Drag-and-drop on preview — @dnd-kit sortable dishes within sections, cross-section moves, section reorder via header drag
-7. Inline editing on preview — click-to-edit with @dnd-kit activation constraints to avoid drag/edit conflicts
+6. ~~Drag-and-drop on preview — @dnd-kit sortable dishes within sections, cross-section moves, section reorder via header drag~~ **DONE**
+7. ~~Inline editing on preview — click-to-edit with @dnd-kit activation constraints to avoid drag/edit conflicts~~ **DONE**
 8. ~~Editor sidebar — dishes tab + style tab~~ **DONE** (built alongside step 5)
 9. ~~Menu creation flow — pick template, get starter sections scaffolded, enter editor~~ **DONE**
-10. Autosave with debounce
+10. ~~Autosave with debounce~~ **DONE**
 11. ~~Menu list homepage (create, open, delete menus)~~ **DONE**
-12. PDF export via Puppeteer — run the Print Fidelity Checklist against all 10 templates
-13. PlateStack dish import
+12. ~~PDF export via Puppeteer — run the Print Fidelity Checklist against all 10 templates~~ **DONE**
+13. ~~PlateStack dish import~~ **DONE**
 14. Allergen icons

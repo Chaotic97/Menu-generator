@@ -7,6 +7,7 @@ import { seedTemplates } from './seed-templates.js';
 import menusRouter from './routes/menus.js';
 import templatesRouter from './routes/templates.js';
 import exportRouter from './routes/export.js';
+import platestackRouter from './routes/platestack.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/menus', menusRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/export', exportRouter);
+app.use('/api/platestack', platestackRouter);
 
 // Serve static frontend in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

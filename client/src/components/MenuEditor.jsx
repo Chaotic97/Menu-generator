@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMenu, updateMenu, updateSections, listTemplates } from '../api/menus.js';
+import { getMenu, updateMenu, updateSections, listTemplates, getPlateStackStatus, getPlateStackDishes, getPlateStackTags, exportPdf } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
+import useAutosave from '../hooks/useAutosave.js';
 import templates from '../templates/index.js';
 
 function formatPrice(raw) {
@@ -12,6 +13,18 @@ function formatPrice(raw) {
   return raw;
 }
 
+// Save status indicator
+function SaveIndicator({ status }) {
+  if (status === 'idle') return null;
+  const labels = { saving: 'Saving...', saved: 'Saved', error: 'Save failed' };
+  const colorMap = { saving: 'text-gray-400', saved: 'text-green-500', error: 'text-red-500' };
+  return (
+    <span className={`text-xs ${colorMap[status]} transition-opacity duration-300`}>
+      {labels[status]}
+    </span>
+  );
+}
+
 export default function MenuEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -20,17 +33,53 @@ export default function MenuEditor() {
   const [templateList, setTemplateList] = useState([]);
   const [activeTab, setActiveTab] = useState('dishes');
   const [loading, setLoading] = useState(true);
+  const [plateStackEnabled, setPlateStackEnabled] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [psDishes, setPsDishes] = useState([]);
+  const [psTags, setPsTags] = useState([]);
+  const [psSelected, setPsSelected] = useState(new Set());
+  const [psLoading, setPsLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const {
+    saveStatus,
+    debouncedSaveSections,
+    debouncedSaveMeta,
+    saveSectionsNow,
+  } = useAutosave(id, { updateSections, updateMenu });
+
+  // Export PDF
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportPdf(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(menu.restaurant_name || menu.name || 'menu').replace(/[^a-zA-Z0-9\-_ ]/g, '')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('PDF export failed: ' + err.message);
+    }
+    setExporting(false);
+  };
 
   // Load menu and templates
   useEffect(() => {
-    Promise.all([getMenu(id), listTemplates()]).then(([menuData, tplList]) => {
-      setMenu(menuData);
-      setTemplateList(tplList);
-      // Use client-side template config (has full theme data)
-      const tpl = templates[menuData.theme_id] || Object.values(templates)[0];
-      setTemplate(tpl);
-      setLoading(false);
-    });
+    Promise.all([getMenu(id), listTemplates(), getPlateStackStatus()]).then(
+      ([menuData, tplList, psStatus]) => {
+        setMenu(menuData);
+        setTemplateList(tplList);
+        setPlateStackEnabled(psStatus.enabled);
+        // Use client-side template config (has full theme data)
+        const tpl = templates[menuData.theme_id] || Object.values(templates)[0];
+        setTemplate(tpl);
+        setLoading(false);
+      }
+    );
   }, [id]);
 
   // Switch template
@@ -49,11 +98,11 @@ export default function MenuEditor() {
     await updateMenu(id, { layout: newLayout });
   };
 
-  // Update restaurant name
-  const handleMetaChange = async (field, value) => {
+  // Update metadata with debounce
+  const handleMetaChange = useCallback((field, value) => {
     setMenu((prev) => ({ ...prev, [field]: value }));
-    await updateMenu(id, { [field]: value });
-  };
+    debouncedSaveMeta({ [field]: value });
+  }, [debouncedSaveMeta]);
 
   // Add section
   const handleAddSection = async () => {
@@ -116,6 +165,141 @@ export default function MenuEditor() {
     setMenu(fresh);
   };
 
+  // Open PlateStack import modal
+  const handleOpenImport = async () => {
+    setPsLoading(true);
+    setShowImportModal(true);
+    setPsSelected(new Set());
+    try {
+      const [dishes, tags] = await Promise.all([
+        getPlateStackDishes(),
+        getPlateStackTags(),
+      ]);
+      setPsDishes(dishes);
+      setPsTags(tags);
+    } catch {
+      setPsDishes([]);
+      setPsTags([]);
+    }
+    setPsLoading(false);
+  };
+
+  // Toggle a single dish selection
+  const handleTogglePsDish = (dishId) => {
+    setPsSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(dishId)) next.delete(dishId);
+      else next.add(dishId);
+      return next;
+    });
+  };
+
+  // Toggle all dishes in a tag group
+  const handleToggleTagGroup = (tag) => {
+    const tagDishes = psDishes.filter(
+      (d) => d.tags && d.tags.split(',').map((t) => t.trim()).includes(tag)
+    );
+    const allSelected = tagDishes.every((d) => psSelected.has(d.id));
+    setPsSelected((prev) => {
+      const next = new Set(prev);
+      for (const d of tagDishes) {
+        if (allSelected) next.delete(d.id);
+        else next.add(d.id);
+      }
+      return next;
+    });
+  };
+
+  // Import selected dishes into current menu
+  const handleImportSelected = async () => {
+    if (psSelected.size === 0) return;
+    const selectedDishes = psDishes.filter((d) => psSelected.has(d.id));
+
+    // Group selected dishes by their first tag (or "Imported" if no tags)
+    const grouped = {};
+    for (const dish of selectedDishes) {
+      const tagList = dish.tags
+        ? dish.tags.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+      const groupName = tagList[0] || 'Imported';
+      if (!grouped[groupName]) grouped[groupName] = [];
+      grouped[groupName].push(dish);
+    }
+
+    // Build updated sections
+    const sections = [...(menu.sections || [])];
+    for (const [tagName, dishes] of Object.entries(grouped)) {
+      // Find existing section with this name
+      let sectionIndex = sections.findIndex(
+        (s) => s.name.toLowerCase() === tagName.toLowerCase()
+      );
+      if (sectionIndex === -1) {
+        // Create new section
+        sections.push({
+          name: tagName,
+          sort_order: sections.length,
+          dishes: [],
+        });
+        sectionIndex = sections.length - 1;
+      }
+      const section = { ...sections[sectionIndex] };
+      section.dishes = [...(section.dishes || [])];
+      for (const dish of dishes) {
+        section.dishes.push({
+          name: dish.name,
+          description: dish.description || '',
+          price: dish.price != null ? String(dish.price) : '0',
+          sort_order: section.dishes.length,
+          platestack_dish_id: dish.id,
+        });
+      }
+      sections[sectionIndex] = section;
+    }
+
+    setMenu((prev) => ({ ...prev, sections }));
+    await updateSections(id, sections);
+    const fresh = await getMenu(id);
+    setMenu(fresh);
+    setShowImportModal(false);
+  };
+
+  // ── Callbacks from MenuPreview ──────────────────────────
+
+  // Drag-and-drop reorder: receives full new sections array
+  const handleSectionsChange = useCallback((newSections) => {
+    setMenu((prev) => ({ ...prev, sections: newSections }));
+    saveSectionsNow(newSections);
+  }, [saveSectionsNow]);
+
+  // Inline field edits from the preview
+  const handleFieldEdit = useCallback((entityType, entityId, field, value, sectionId) => {
+    if (entityType === 'menu') {
+      setMenu((prev) => ({ ...prev, [field]: value }));
+      debouncedSaveMeta({ [field]: value });
+      return;
+    }
+
+    setMenu((prev) => {
+      const newSections = (prev.sections || []).map((s) => {
+        if (entityType === 'section' && s.id === entityId) {
+          return { ...s, [field]: value };
+        }
+        if (entityType === 'dish') {
+          const dishIdx = (s.dishes || []).findIndex((d) => d.id === entityId);
+          if (dishIdx !== -1) {
+            const newDishes = [...s.dishes];
+            newDishes[dishIdx] = { ...newDishes[dishIdx], [field]: value };
+            return { ...s, dishes: newDishes };
+          }
+        }
+        return s;
+      });
+
+      debouncedSaveSections(newSections);
+      return { ...prev, sections: newSections };
+    });
+  }, [debouncedSaveSections, debouncedSaveMeta]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -144,7 +328,17 @@ export default function MenuEditor() {
           >
             &larr; All Menus
           </button>
-          <h2 className="font-semibold text-gray-900 truncate">{menu.name}</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-gray-900 truncate">{menu.name}</h2>
+            <SaveIndicator status={saveStatus} />
+            <button
+              onClick={handleExportPdf}
+              disabled={exporting}
+              className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -203,8 +397,8 @@ export default function MenuEditor() {
                 />
               </div>
 
-              {/* Sections */}
-              {menu.sections?.map((section, si) => (
+              {/* Sections — read-only mirror of current order */}
+              {(menu.sections || []).sort((a, b) => a.sort_order - b.sort_order).map((section, si) => (
                 <div key={section.id || si} className="mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-semibold text-gray-700">
@@ -220,12 +414,17 @@ export default function MenuEditor() {
                   {section.dishes?.length === 0 && (
                     <p className="text-xs text-gray-400 italic mb-1">(empty)</p>
                   )}
-                  {section.dishes?.map((dish, di) => (
+                  {(section.dishes || []).sort((a, b) => a.sort_order - b.sort_order).map((dish, di) => (
                     <div
                       key={dish.id || di}
                       className="flex items-center justify-between py-1 text-sm group"
                     >
-                      <span className="text-gray-600 truncate mr-2">
+                      <span className="text-gray-600 truncate mr-2 flex items-center gap-1">
+                        {dish.platestack_dish_id && (
+                          <svg className="w-3 h-3 text-indigo-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                          </svg>
+                        )}
                         {dish.name}
                       </span>
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -256,6 +455,15 @@ export default function MenuEditor() {
               >
                 + Add Section
               </button>
+
+              {plateStackEnabled && (
+                <button
+                  onClick={handleOpenImport}
+                  className="w-full mt-2 py-2 text-sm text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:text-indigo-900 hover:bg-indigo-50"
+                >
+                  Import from PlateStack
+                </button>
+              )}
             </div>
           ) : (
             <div>
@@ -337,8 +545,213 @@ export default function MenuEditor() {
           backgroundSize: '20px 20px',
         }}
       >
-        <MenuPreview menu={menu} template={template} mode={mode || 'edit'} />
+        <MenuPreview
+          menu={menu}
+          template={template}
+          mode="edit"
+          onSectionsChange={handleSectionsChange}
+          onFieldEdit={handleFieldEdit}
+        />
       </div>
+
+      {/* PlateStack Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Import from PlateStack
+              </h3>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {psLoading ? (
+                <div className="text-center text-gray-400 py-12">
+                  Loading dishes...
+                </div>
+              ) : psDishes.length === 0 ? (
+                <div className="text-center text-gray-400 py-12">
+                  No dishes found in PlateStack.
+                </div>
+              ) : (
+                <div>
+                  {psTags.map((tag) => {
+                    const tagDishes = psDishes.filter(
+                      (d) =>
+                        d.tags &&
+                        d.tags
+                          .split(',')
+                          .map((t) => t.trim())
+                          .includes(tag)
+                    );
+                    if (tagDishes.length === 0) return null;
+                    const allSelected = tagDishes.every((d) =>
+                      psSelected.has(d.id)
+                    );
+                    return (
+                      <div key={tag} className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={() => handleToggleTagGroup(tag)}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <h4 className="text-sm font-semibold text-gray-700">
+                            {tag}
+                          </h4>
+                          <span className="text-xs text-gray-400">
+                            ({tagDishes.length})
+                          </span>
+                        </div>
+                        <div className="ml-6 space-y-1">
+                          {tagDishes.map((dish) => (
+                            <label
+                              key={dish.id}
+                              className="flex items-start gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={psSelected.has(dish.id)}
+                                onChange={() => handleTogglePsDish(dish.id)}
+                                className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-800 truncate">
+                                    {dish.name}
+                                  </span>
+                                  <span className="text-sm text-gray-500 ml-2 flex-shrink-0">
+                                    {dish.price != null ? `$${dish.price}` : ''}
+                                  </span>
+                                </div>
+                                {dish.description && (
+                                  <p className="text-xs text-gray-400 truncate">
+                                    {dish.description}
+                                  </p>
+                                )}
+                                {dish.allergens && (
+                                  <p className="text-xs text-amber-500">
+                                    Allergens: {dish.allergens}
+                                  </p>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Untagged dishes */}
+                  {(() => {
+                    const untagged = psDishes.filter(
+                      (d) => !d.tags || d.tags.trim() === ''
+                    );
+                    if (untagged.length === 0) return null;
+                    const allSelected = untagged.every((d) =>
+                      psSelected.has(d.id)
+                    );
+                    return (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={() => {
+                              setPsSelected((prev) => {
+                                const next = new Set(prev);
+                                for (const d of untagged) {
+                                  if (allSelected) next.delete(d.id);
+                                  else next.add(d.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <h4 className="text-sm font-semibold text-gray-700">
+                            Uncategorized
+                          </h4>
+                          <span className="text-xs text-gray-400">
+                            ({untagged.length})
+                          </span>
+                        </div>
+                        <div className="ml-6 space-y-1">
+                          {untagged.map((dish) => (
+                            <label
+                              key={dish.id}
+                              className="flex items-start gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={psSelected.has(dish.id)}
+                                onChange={() => handleTogglePsDish(dish.id)}
+                                className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-gray-800 truncate">
+                                    {dish.name}
+                                  </span>
+                                  <span className="text-sm text-gray-500 ml-2 flex-shrink-0">
+                                    {dish.price != null ? `$${dish.price}` : ''}
+                                  </span>
+                                </div>
+                                {dish.description && (
+                                  <p className="text-xs text-gray-400 truncate">
+                                    {dish.description}
+                                  </p>
+                                )}
+                                {dish.allergens && (
+                                  <p className="text-xs text-amber-500">
+                                    Allergens: {dish.allergens}
+                                  </p>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+              <span className="text-sm text-gray-500">
+                {psSelected.size} dish{psSelected.size !== 1 ? 'es' : ''}{' '}
+                selected
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportSelected}
+                  disabled={psSelected.size === 0}
+                  className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Import Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
