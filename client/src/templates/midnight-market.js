@@ -1,10 +1,10 @@
 export default {
   id: "midnight-market",
-  name: "Midnight Market",
-  description: "Upscale night market. Near-black bg with warm gold. Luxe but approachable.",
-  category: "asian",
+  name: "Gilded Dark",
+  description: "Upscale luxe. Near-black bg with warm gold. Luxe but approachable.",
+  category: "formal",
   previewColors: ["#111111", "#C9A84C", "#E8DCC8"],
-  starterSections: ["Starters", "Dim Sum", "Mains", "Noodles & Rice", "Desserts & Drinks"],
+  starterSections: ["Starters", "Mains", "Sides", "Desserts & Drinks"],
   colors: {
     bg: "#111111",
     text: "#E8DCC8",
@@ -47,5 +47,6 @@ export default {
     priceAlignment: "right",
     sectionAlignment: "center",
   },
+  logo: { width: 70, height: 70, shape: "circle" },
   allergens: { iconSize: 12, iconColor: "#9B8E78", position: "after-desc" },
 };

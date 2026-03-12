@@ -1,10 +1,10 @@
 export default {
   id: "wok-fire",
-  name: "Wok & Fire",
-  description: "Energetic street food. Charcoal bg, bright orange/amber heat. Punchy and bold.",
-  category: "fusion",
+  name: "Ember",
+  description: "Energetic and warm. Charcoal bg, bright orange/amber heat. Punchy and bold.",
+  category: "modern",
   previewColors: ["#1E1E1E", "#E8722A", "#F5F0E8"],
-  starterSections: ["Small Eats", "From the Wok", "Grilled", "Fried Rice & Noodles", "Something Sweet"],
+  starterSections: ["Small Plates", "Grilled", "Mains", "Sides", "Desserts"],
   colors: {
     bg: "#1E1E1E",
     text: "#F5F0E8",

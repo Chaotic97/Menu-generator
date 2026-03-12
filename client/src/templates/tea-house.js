@@ -1,10 +1,10 @@
 export default {
   id: "tea-house",
-  name: "Tea House",
-  description: "Serene. Japanese/Chinese tea ceremony aesthetic. Warm earth tones, generous breathing room.",
-  category: "asian",
+  name: "Quiet Craft",
+  description: "Serene and understated. Warm earth tones, generous breathing room.",
+  category: "minimal",
   previewColors: ["#F7F3EB", "#8C6D46", "#3D352B"],
-  starterSections: ["Light Bites", "Tea Pairings", "Main Dishes", "Rice & Congee", "Sweets"],
+  starterSections: ["Light Bites", "Mains", "Sides", "Sweets"],
   colors: {
     bg: "#F7F3EB",
     text: "#3D352B",

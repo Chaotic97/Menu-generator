@@ -1,10 +1,10 @@
 export default {
   id: "neon-district",
-  name: "Neon District",
-  description: "Night market meets cyberpunk. Very dark bg, electric accent, modern sans-serif.",
+  name: "Electric Night",
+  description: "Bold and electric. Very dark bg, neon accent, modern sans-serif.",
   category: "modern",
   previewColors: ["#0D0D0D", "#FF2D55", "#F0F0F0"],
-  starterSections: ["Snacks", "Skewers", "Bowls", "Noodles", "Drinks"],
+  starterSections: ["Snacks", "Small Plates", "Mains", "Sides", "Drinks"],
   colors: {
     bg: "#0D0D0D",
     text: "#F0F0F0",

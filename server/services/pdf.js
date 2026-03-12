@@ -304,6 +304,12 @@ function buildHtml(menu, template) {
     <div style="${innerBorder}${innerMargin}padding:${spacing.pagePadding}px;">
       <!-- Header -->
       <div style="text-align:center;margin-bottom:${spacing.headerBottom}px;">
+        ${template.logo ? `<div style="display:flex;justify-content:center;margin-bottom:16px">
+          <div style="width:${template.logo.width || 80}px;height:${template.logo.height || 80}px;border:1.5px dashed ${colors.muted};border-radius:${template.logo.shape === 'circle' ? '50%' : '4px'};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;opacity:0.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${colors.muted}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span style="font-family:${fonts.body};font-size:8px;color:${colors.muted};text-transform:uppercase;letter-spacing:1.5px">Logo</span>
+          </div>
+        </div>` : ''}
         ${renderHeaderDecor(layout.headerDecor, colors)}
         <h1 style="${titleStyle}">${esc(menu.restaurant_name || menu.name)}</h1>
         ${renderPostTitleDecor(layout.headerDecor, colors)}

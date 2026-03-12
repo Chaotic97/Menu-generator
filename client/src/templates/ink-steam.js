@@ -1,10 +1,10 @@
 export default {
   id: "ink-steam",
-  name: "Ink & Steam",
-  description: "Japanese minimalism. Maximum whitespace, dramatic restraint.",
-  category: "modern",
+  name: "Clean Slate",
+  description: "Minimalist restraint. Maximum whitespace, dramatic simplicity.",
+  category: "minimal",
   previewColors: ["#FAFAF8", "#1A1A1A", "#999999"],
-  starterSections: ["To Start", "Main", "Rice & Noodles", "Sweet"],
+  starterSections: ["To Start", "Mains", "Sides", "Desserts"],
   colors: {
     bg: "#FAFAF8",
     text: "#1A1A1A",

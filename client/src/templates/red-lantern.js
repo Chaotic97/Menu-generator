@@ -1,8 +1,8 @@
 export default {
   id: "red-lantern",
-  name: "Red Lantern",
-  description: "Bold Chinese-American. Confident red, cream bg, strong serif typography.",
-  category: "asian",
+  name: "Bold Serif",
+  description: "Confident and bold. Rich red, cream bg, strong serif typography.",
+  category: "classic",
   previewColors: ["#FBF5EC", "#B82025", "#1C1C1C"],
   starterSections: ["Small Plates", "Large Plates", "Sides", "Drinks"],
   colors: {
@@ -47,5 +47,6 @@ export default {
     priceAlignment: "right",
     sectionAlignment: "center",
   },
+  logo: { width: 80, height: 60, shape: "rect" },
   allergens: { iconSize: 12, iconColor: "#6B5E4F", position: "after-desc" },
 };

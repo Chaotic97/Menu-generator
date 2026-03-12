@@ -454,28 +454,13 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
       />
     );
 
+    // Attach dnd-kit listeners directly to the section header wrapper
+    // so users can drag from the text itself (click = edit, drag = reorder)
+    const dragProps = interactive ? { ...listeners, style: { cursor: 'grab' } } : {};
+
     if (isLineThrough) {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', position: 'relative' }}>
-          {interactive && (
-            <div
-              {...listeners}
-              style={{
-                position: 'absolute',
-                left: '-22px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                cursor: 'grab',
-                opacity: 0,
-                transition: 'opacity 0.15s',
-                padding: '2px',
-                zIndex: 2,
-              }}
-              className="drag-handle"
-            >
-              <DragHandleIcon color={colors.muted || '#999'} />
-            </div>
-          )}
+        <div {...dragProps} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', position: 'relative', ...(interactive ? { cursor: 'grab' } : {}) }}>
           <div style={{ flex: 1, height: '1px', background: colors.divider }} />
           {nameElement}
           <div style={{ flex: 1, height: '1px', background: colors.divider }} />
@@ -484,29 +469,11 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
     }
 
     return (
-      <div style={{ position: 'relative' }}>
-        {interactive && (
-          <div
-            {...listeners}
-            style={{
-              position: 'absolute',
-              left: '-22px',
-              top: '2px',
-              cursor: 'grab',
-              opacity: 0,
-              transition: 'opacity 0.15s',
-              padding: '2px',
-              zIndex: 2,
-            }}
-            className="drag-handle"
-          >
-            <DragHandleIcon color={colors.muted || '#999'} />
-          </div>
-        )}
+      <div>
         {!isFirst && !isLeftAccent && (
           <SectionDivider style={layout.dividerStyle} colors={colors} sectionAlignment={sectionAlignment} />
         )}
-        <div style={sectionHeaderStyle}>{nameElement}</div>
+        <div {...dragProps} style={{ ...sectionHeaderStyle, ...(interactive ? { cursor: 'grab' } : {}) }}>{nameElement}</div>
       </div>
     );
   };
@@ -900,6 +867,39 @@ export default function MenuPreview({
         >
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: `${spacing.headerBottom}px` }}>
+            {template.logo && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: '16px',
+              }}>
+                <div style={{
+                  width: `${template.logo.width || 80}px`,
+                  height: `${template.logo.height || 80}px`,
+                  border: `1.5px dashed ${colors.muted}`,
+                  borderRadius: template.logo.shape === 'circle' ? '50%' : '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  opacity: 0.5,
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <span style={{
+                    fontFamily: fonts.body,
+                    fontSize: '8px',
+                    color: colors.muted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1.5px',
+                  }}>Logo</span>
+                </div>
+              </div>
+            )}
             <HeaderDecor style={layout.headerDecor} colors={colors} />
 
             {interactive ? (

@@ -1,10 +1,10 @@
 export default {
   id: "jade-palace",
-  name: "Jade Palace",
-  description: "Formal Chinese banquet hall. Dark jade green bg, gold accents, ornamental dividers.",
-  category: "asian",
+  name: "Emerald Grand",
+  description: "Formal elegance. Dark jade green bg, gold accents, ornamental dividers.",
+  category: "formal",
   previewColors: ["#0C2E1F", "#D4A54A", "#F0E6D0"],
-  starterSections: ["Appetizers", "Soups", "Entrées", "Noodles & Rice", "Desserts"],
+  starterSections: ["Appetizers", "Soups", "Mains", "Sides", "Desserts"],
   colors: {
     bg: "#0C2E1F",
     text: "#F0E6D0",
@@ -47,5 +47,6 @@ export default {
     priceAlignment: "right",
     sectionAlignment: "center",
   },
+  logo: { width: 70, height: 70, shape: "circle" },
   allergens: { iconSize: 12, iconColor: "#A89878", position: "after-desc" },
 };

@@ -1,10 +1,10 @@
 export default {
   id: "silk-road",
-  name: "Silk Road",
-  description: "Pan-Asian modern editorial. Warm spice tones. Magazine layout influence.",
-  category: "fusion",
+  name: "Spice Editorial",
+  description: "Modern editorial. Warm spice tones. Magazine layout influence.",
+  category: "editorial",
   previewColors: ["#FAF4EC", "#C45D2C", "#2A1F17"],
-  starterSections: ["To Begin", "Curries & Braises", "From the Grill", "Grains & Noodles", "To Finish"],
+  starterSections: ["To Begin", "Mains", "From the Grill", "Sides", "To Finish"],
   colors: {
     bg: "#FAF4EC",
     text: "#2A1F17",

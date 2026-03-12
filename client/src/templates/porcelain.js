@@ -1,10 +1,10 @@
 export default {
   id: "porcelain",
-  name: "Porcelain",
-  description: "Chinese blue-and-white pottery. Clean white bg, rich blue accents. Delicate and refined.",
-  category: "asian",
+  name: "Delft",
+  description: "Blue-and-white ceramic elegance. Clean white bg, rich blue accents. Delicate and refined.",
+  category: "classic",
   previewColors: ["#FFFFFF", "#2B5BA3", "#1A2744"],
-  starterSections: ["Appetizers", "Seafood", "Poultry & Meat", "Vegetables & Tofu", "Noodles & Rice", "Desserts"],
+  starterSections: ["Appetizers", "Seafood", "Mains", "Sides", "Desserts"],
   colors: {
     bg: "#FFFFFF",
     text: "#1A2744",
@@ -47,5 +47,6 @@ export default {
     priceAlignment: "right",
     sectionAlignment: "center",
   },
+  logo: { width: 80, height: 80, shape: "rect" },
   allergens: { iconSize: 12, iconColor: "#7889A0", position: "after-desc" },
 };

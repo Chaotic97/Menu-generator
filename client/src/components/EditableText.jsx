@@ -62,6 +62,7 @@ export default function EditableText({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
+        onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();

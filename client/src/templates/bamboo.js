@@ -1,10 +1,10 @@
 export default {
   id: "bamboo",
-  name: "Bamboo",
-  description: "Organic modern Asian. Natural greens, warm paper tone, clean but warm.",
-  category: "asian",
+  name: "Garden",
+  description: "Organic and natural. Earthy greens, warm paper tone, clean but warm.",
+  category: "natural",
   previewColors: ["#F4F1E8", "#5A7C3A", "#2C3E2D"],
-  starterSections: ["Appetizers", "Entrées", "From the Wok", "Vegetables & Sides", "Desserts"],
+  starterSections: ["Appetizers", "Mains", "Vegetables & Sides", "Desserts"],
   colors: {
     bg: "#F4F1E8",
     text: "#2C3E2D",
