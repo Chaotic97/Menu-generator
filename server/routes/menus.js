@@ -199,6 +199,22 @@ router.put('/:id/sections', (req, res) => {
     // Update menu's updated_at
     db.prepare("UPDATE menus SET updated_at = datetime('now') WHERE id = ?").run(req.params.id);
 
+    // Auto-save dishes to library
+    const upsertLibrary = db.prepare(`
+      INSERT INTO dish_library (name, price, description)
+      VALUES (?, ?, ?)
+      ON CONFLICT(name) DO UPDATE SET
+        price = excluded.price, description = excluded.description,
+        updated_at = datetime('now')
+    `);
+    for (const section of sections) {
+      for (const dish of (section.dishes || [])) {
+        if (dish.name && dish.name.trim() !== '' && dish.name !== 'New Dish') {
+          upsertLibrary.run(dish.name.trim(), dish.price || '', dish.description || '');
+        }
+      }
+    }
+
     return resultSections;
   });
 

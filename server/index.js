@@ -11,6 +11,7 @@ import menusRouter from './routes/menus.js';
 import templatesRouter from './routes/templates.js';
 import exportRouter from './routes/export.js';
 import platestackRouter from './routes/platestack.js';
+import dishLibraryRouter from './routes/dish-library.js';
 import { closeBrowser } from './services/pdf.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,7 @@ app.use('/api/menus', apiLimiter, menusRouter);
 app.use('/api/templates', apiLimiter, templatesRouter);
 app.use('/api/export', exportLimiter, exportRouter);
 app.use('/api/platestack', apiLimiter, platestackRouter);
+app.use('/api/dish-library', apiLimiter, dishLibraryRouter);
 
 // Serve static frontend in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

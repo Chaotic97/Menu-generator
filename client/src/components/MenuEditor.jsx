@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getMenu, updateMenu, updateSections, listTemplates, getPlateStackStatus, getPlateStackDishes, getPlateStackTags, exportPdf } from '../api/menus.js';
+import { getMenu, updateMenu, updateSections, listTemplates, getPlateStackStatus, getPlateStackDishes, getPlateStackTags, exportPdf, searchDishLibrary } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
 import useAutosave from '../hooks/useAutosave.js';
+import useDishAutocomplete from '../hooks/useDishAutocomplete.js';
+import AutocompleteDropdown from './AutocompleteDropdown.jsx';
+import ImportDishesModal from './ImportDishesModal.jsx';
 import templates from '../templates/index.js';
 
 function formatPrice(raw) {
@@ -44,6 +47,14 @@ export default function MenuEditor() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
   const lastPinchDist = useRef(null);
+  const [showImportDishesModal, setShowImportDishesModal] = useState(false);
+  const [sidebarAutocompleteQuery, setSidebarAutocompleteQuery] = useState('');
+  const [sidebarAutocompleteDishId, setSidebarAutocompleteDishId] = useState(null);
+  const [sidebarHighlightIndex, setSidebarHighlightIndex] = useState(0);
+  const [inlineAutocompleteQuery, setInlineAutocompleteQuery] = useState('');
+  const [inlineAutocompleteDishId, setInlineAutocompleteDishId] = useState(null);
+  const sidebarAcResult = useDishAutocomplete(sidebarAutocompleteQuery);
+  const inlineAcResult = useDishAutocomplete(inlineAutocompleteQuery);
 
   const handleTouchStart = useCallback((e) => {
     if (e.touches.length === 2) {
@@ -305,6 +316,12 @@ export default function MenuEditor() {
       return;
     }
 
+    // Track inline autocomplete for dish name edits
+    if (entityType === 'dish' && field === 'name') {
+      setInlineAutocompleteQuery(value);
+      setInlineAutocompleteDishId(entityId);
+    }
+
     setMenu((prev) => {
       const newSections = (prev.sections || []).map((s) => {
         if (entityType === 'section' && s.id === entityId) {
@@ -325,6 +342,38 @@ export default function MenuEditor() {
       return { ...prev, sections: newSections };
     });
   }, [debouncedSaveSections, debouncedSaveMeta]);
+
+  // Handle inline autocomplete suggestion selection
+  const handleDishSelectSuggestion = useCallback((dishId, suggestion, sectionId) => {
+    setInlineAutocompleteDishId(null);
+    setInlineAutocompleteQuery('');
+
+    setMenu((prev) => {
+      const newSections = (prev.sections || []).map((s) => {
+        const dishIdx = (s.dishes || []).findIndex((d) => d.id === dishId);
+        if (dishIdx !== -1) {
+          const newDishes = [...s.dishes];
+          newDishes[dishIdx] = {
+            ...newDishes[dishIdx],
+            name: suggestion.name,
+            price: suggestion.price || newDishes[dishIdx].price,
+            description: suggestion.description || newDishes[dishIdx].description,
+          };
+          return { ...s, dishes: newDishes };
+        }
+        return s;
+      });
+
+      debouncedSaveSections(newSections);
+      return { ...prev, sections: newSections };
+    });
+  }, [debouncedSaveSections]);
+
+  // Build dishSuggestions map for inline preview autocomplete
+  const dishSuggestions = {};
+  if (inlineAutocompleteDishId && inlineAcResult.suggestions.length > 0) {
+    dishSuggestions[inlineAutocompleteDishId] = inlineAcResult.suggestions;
+  }
 
   if (loading) {
     return (
@@ -467,15 +516,65 @@ export default function MenuEditor() {
                       className="mb-3 border border-gray-200 rounded-lg p-3"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={dish.name}
-                          onChange={(e) => {
-                            handleFieldEdit('dish', dish.id, 'name', e.target.value, section.id);
-                          }}
-                          className="flex-1 min-w-0 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
-                          placeholder="Dish name"
-                        />
+                        <div className="flex-1 min-w-0 relative">
+                          <input
+                            type="text"
+                            value={dish.name}
+                            onChange={(e) => {
+                              handleFieldEdit('dish', dish.id, 'name', e.target.value, section.id);
+                              setSidebarAutocompleteQuery(e.target.value);
+                              setSidebarAutocompleteDishId(dish.id);
+                              setSidebarHighlightIndex(0);
+                            }}
+                            onFocus={() => {
+                              setSidebarAutocompleteQuery(dish.name);
+                              setSidebarAutocompleteDishId(dish.id);
+                              setSidebarHighlightIndex(0);
+                            }}
+                            onBlur={() => {
+                              // Delay to allow click on dropdown
+                              setTimeout(() => setSidebarAutocompleteDishId(null), 150);
+                            }}
+                            onKeyDown={(e) => {
+                              const sugs = sidebarAutocompleteDishId === dish.id ? sidebarAcResult.suggestions : [];
+                              if (sugs.length > 0) {
+                                if (e.key === 'ArrowDown') {
+                                  e.preventDefault();
+                                  setSidebarHighlightIndex((p) => Math.min(p + 1, sugs.length - 1));
+                                } else if (e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setSidebarHighlightIndex((p) => Math.max(p - 1, 0));
+                                } else if (e.key === 'Tab' || e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const s = sugs[sidebarHighlightIndex];
+                                  if (s) {
+                                    handleFieldEdit('dish', dish.id, 'name', s.name, section.id);
+                                    if (s.price) handleFieldEdit('dish', dish.id, 'price', s.price, section.id);
+                                    if (s.description) handleFieldEdit('dish', dish.id, 'description', s.description, section.id);
+                                    setSidebarAutocompleteDishId(null);
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setSidebarAutocompleteDishId(null);
+                                }
+                              }
+                            }}
+                            className="w-full px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            placeholder="Dish name"
+                          />
+                          {sidebarAutocompleteDishId === dish.id && sidebarAcResult.suggestions.length > 0 && (
+                            <AutocompleteDropdown
+                              suggestions={sidebarAcResult.suggestions}
+                              highlightIndex={sidebarHighlightIndex}
+                              onSelect={(s) => {
+                                handleFieldEdit('dish', dish.id, 'name', s.name, section.id);
+                                if (s.price) handleFieldEdit('dish', dish.id, 'price', s.price, section.id);
+                                if (s.description) handleFieldEdit('dish', dish.id, 'description', s.description, section.id);
+                                setSidebarAutocompleteDishId(null);
+                              }}
+                              style={{ top: '100%', left: 0 }}
+                            />
+                          )}
+                        </div>
                         <input
                           type="text"
                           value={dish.price === '0' ? '' : dish.price || ''}
@@ -517,6 +616,13 @@ export default function MenuEditor() {
                 className="w-full py-3 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-900 min-h-[44px]"
               >
                 + Add Section
+              </button>
+
+              <button
+                onClick={() => setShowImportDishesModal(true)}
+                className="w-full mt-2 py-3 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-900 min-h-[44px]"
+              >
+                Import Dishes
               </button>
 
               {plateStackEnabled && (
@@ -678,6 +784,8 @@ export default function MenuEditor() {
             mode="edit"
             onSectionsChange={handleSectionsChange}
             onFieldEdit={handleFieldEdit}
+            dishSuggestions={dishSuggestions}
+            onDishSelectSuggestion={handleDishSelectSuggestion}
           />
         </div>
       </div>
@@ -705,6 +813,50 @@ export default function MenuEditor() {
           </button>
         )}
       </div>
+
+      {/* Dish Library Import Modal */}
+      {showImportDishesModal && (
+        <ImportDishesModal
+          onClose={() => setShowImportDishesModal(false)}
+          menuSections={menu.sections}
+          onImported={async (dishes, addToMenu) => {
+            if (addToMenu && dishes.length > 0) {
+              // Add imported dishes to an "Imported" section on the current menu
+              const sections = [...(menu.sections || [])];
+              let importSection = sections.find(
+                (s) => s.name.toLowerCase() === 'imported'
+              );
+              let sectionIdx = importSection
+                ? sections.indexOf(importSection)
+                : -1;
+              if (!importSection) {
+                importSection = {
+                  name: 'Imported',
+                  sort_order: sections.length,
+                  dishes: [],
+                };
+                sections.push(importSection);
+                sectionIdx = sections.length - 1;
+              }
+              const sec = { ...sections[sectionIdx] };
+              sec.dishes = [...(sec.dishes || [])];
+              for (const dish of dishes) {
+                sec.dishes.push({
+                  name: dish.name,
+                  description: dish.description || '',
+                  price: dish.price || '0',
+                  sort_order: sec.dishes.length,
+                });
+              }
+              sections[sectionIdx] = sec;
+              setMenu((prev) => ({ ...prev, sections }));
+              await updateSections(id, sections);
+              const fresh = await getMenu(id);
+              setMenu(fresh);
+            }
+          }}
+        />
+      )}
 
       {/* PlateStack Import Modal */}
       {showImportModal && (

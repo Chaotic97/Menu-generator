@@ -186,7 +186,7 @@ function DragHandleIcon({ color }) {
 
 // ── Sortable dish row ──────────────────────────────────────
 
-function SortableDishRow({ dish, template, interactive, onFieldEdit, sectionId }) {
+function SortableDishRow({ dish, template, interactive, onFieldEdit, sectionId, suggestions, onSelectSuggestion }) {
   const { colors, fonts, sizes, spacing, typography, layout } = template;
   const price = formatPrice(dish.price);
   const priceColor = colors.priceColor || colors.accent;
@@ -256,6 +256,8 @@ function SortableDishRow({ dish, template, interactive, onFieldEdit, sectionId }
             flexShrink: 1,
             maxWidth: '70%',
           }}
+          suggestions={suggestions}
+          onSelectSuggestion={onSelectSuggestion}
         />
 
         <DotLeader config={layout} colors={colors} />
@@ -387,7 +389,7 @@ function StaticDishRow({ dish, template }) {
 
 // ── Sortable section block ─────────────────────────────────
 
-function SortableSectionBlock({ section, template, interactive, isFirst, onFieldEdit }) {
+function SortableSectionBlock({ section, template, interactive, isFirst, onFieldEdit, dishSuggestions, onDishSelectSuggestion }) {
   const { colors, fonts, sizes, spacing, typography, layout } = template;
   const sectionAlignment = layout.sectionAlignment || 'center';
   const isLeftAccent = layout.dividerStyle === 'left-accent';
@@ -493,6 +495,8 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
               interactive={interactive}
               onFieldEdit={onFieldEdit}
               sectionId={section.id}
+              suggestions={dishSuggestions?.[dish.id]}
+              onSelectSuggestion={onDishSelectSuggestion ? (s) => onDishSelectSuggestion(dish.id, s, section.id) : undefined}
             />
           ))}
         </div>
@@ -605,6 +609,8 @@ export default function MenuPreview({
   mode = 'edit',
   onSectionsChange,
   onFieldEdit,
+  dishSuggestions,
+  onDishSelectSuggestion,
 }) {
   const titleRef = useRef();
   const [titleScale, setTitleScale] = useState(1);
@@ -806,6 +812,8 @@ export default function MenuPreview({
           interactive={interactive}
           isFirst={i === 0}
           onFieldEdit={onFieldEdit}
+          dishSuggestions={dishSuggestions}
+          onDishSelectSuggestion={onDishSelectSuggestion}
         />
       ) : (
         <StaticSectionBlock

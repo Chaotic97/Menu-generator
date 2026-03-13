@@ -71,6 +71,33 @@ export async function getPlateStackTags() {
   return res.json();
 }
 
+// Dish Library
+export async function searchDishLibrary(query) {
+  const res = await fetch(`${BASE}/dish-library?q=${encodeURIComponent(query)}`);
+  return res.json();
+}
+
+export async function importDishLibrary(formDataOrText) {
+  if (formDataOrText instanceof FormData) {
+    const res = await fetch(`${BASE}/dish-library/import`, {
+      method: 'POST',
+      body: formDataOrText,
+    });
+    return res.json();
+  }
+  const res = await fetch(`${BASE}/dish-library/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formDataOrText),
+  });
+  return res.json();
+}
+
+export async function deleteDishFromLibrary(id) {
+  const res = await fetch(`${BASE}/dish-library/${id}`, { method: 'DELETE' });
+  return res.json();
+}
+
 export async function exportPdf(menuId, options = {}) {
   const res = await fetch(`${BASE}/export/${menuId}/pdf`, {
     method: 'POST',

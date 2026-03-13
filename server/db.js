@@ -65,6 +65,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dishes_section ON menu_dishes(section_id);
   CREATE INDEX IF NOT EXISTS idx_dishes_platestack ON menu_dishes(platestack_dish_id);
   CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category);
+
+  CREATE TABLE IF NOT EXISTS dish_library (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_library_name
+    ON dish_library(name COLLATE NOCASE);
 `);
 
 export default db;
