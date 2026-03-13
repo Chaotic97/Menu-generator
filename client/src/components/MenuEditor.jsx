@@ -165,7 +165,7 @@ export default function MenuEditor() {
 
   // Remove section
   const handleRemoveSection = async (sectionIndex) => {
-    if (!confirm('Delete this section and all its dishes?')) return;
+    if (!confirm('Delete this section and all its items?')) return;
     const updatedSections = menu.sections.filter((_, i) => i !== sectionIndex);
     setMenu((prev) => ({ ...prev, sections: updatedSections }));
     await updateSections(id, updatedSections);
@@ -488,7 +488,7 @@ export default function MenuEditor() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Dishes
+            Items
           </button>
           <button
             onClick={() => setActiveTab('style')}
@@ -600,7 +600,7 @@ export default function MenuEditor() {
                               }
                             }}
                             className="w-full px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
-                            placeholder="Dish name"
+                            placeholder="Item name"
                           />
                           {sidebarAutocompleteDishId === dish.id && sidebarAcResult.suggestions.length > 0 && (
                             <AutocompleteDropdown
@@ -647,7 +647,7 @@ export default function MenuEditor() {
                     onClick={() => handleAddDish(si)}
                     className="mt-1 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] flex items-center"
                   >
-                    + Add dish
+                    + Add item
                   </button>
                 </div>
               ))}
@@ -665,7 +665,7 @@ export default function MenuEditor() {
                   onClick={() => setShowLibrary((v) => !v)}
                   className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg min-h-[44px]"
                 >
-                  <span>Dish Library</span>
+                  <span>Item Library</span>
                   <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${showLibrary ? 'rotate-180' : ''}`}>
                     <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -677,7 +677,7 @@ export default function MenuEditor() {
                       value={librarySearch}
                       onChange={(e) => handleLibrarySearch(e.target.value)}
                       className="w-full mt-2 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
-                      placeholder="Search saved dishes..."
+                      placeholder="Search saved items..."
                     />
                     {libraryResults.length > 0 ? (
                       <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
@@ -710,7 +710,7 @@ export default function MenuEditor() {
                     ) : librarySearch.length >= 2 ? (
                       <p className="mt-2 text-xs text-gray-400 text-center py-2">No matches</p>
                     ) : (
-                      <p className="mt-2 text-xs text-gray-400 text-center py-2">Type to search your saved dishes</p>
+                      <p className="mt-2 text-xs text-gray-400 text-center py-2">Type to search your saved items</p>
                     )}
                     <button
                       onClick={() => setShowImportDishesModal(true)}
@@ -911,7 +911,7 @@ export default function MenuEditor() {
         )}
       </div>
 
-      {/* Dish Library Import Modal */}
+      {/* Item Library Import Modal */}
       {showImportDishesModal && (
         <ImportDishesModal
           onClose={() => setShowImportDishesModal(false)}
@@ -976,11 +976,11 @@ export default function MenuEditor() {
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
               {psLoading ? (
                 <div className="text-center text-gray-400 py-12">
-                  Loading dishes...
+                  Loading items...
                 </div>
               ) : psDishes.length === 0 ? (
                 <div className="text-center text-gray-400 py-12">
-                  No dishes found in PlateStack.
+                  No items found in PlateStack.
                 </div>
               ) : (
                 <div>
@@ -1131,7 +1131,7 @@ export default function MenuEditor() {
             {/* Modal Footer */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-gray-200">
               <span className="text-sm text-gray-500">
-                {psSelected.size} dish{psSelected.size !== 1 ? 'es' : ''}{' '}
+                {psSelected.size} item{psSelected.size !== 1 ? 's' : ''}{' '}
                 selected
               </span>
               <div className="flex gap-2">

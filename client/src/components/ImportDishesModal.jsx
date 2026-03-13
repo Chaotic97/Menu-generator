@@ -64,7 +64,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
         setSelected(new Set(result.dishes.map((_, i) => i)));
       } else {
         setError(
-          'No dishes found. Make sure each line has a dish name, optionally followed by a price.\n\nExamples:\n  Margherita Pizza $14.95\n  Caesar Salad 12\n  Chef\'s Special M.P.'
+          'No items found. Make sure each line has a name, optionally followed by a price.\n\nExamples:\n  Margherita Pizza $14.95\n  Caesar Salad 12\n  Chef\'s Special M.P.'
         );
       }
     } catch (err) {
@@ -136,7 +136,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Import Dishes
+            Import Items
           </h3>
           <button
             onClick={onClose}
@@ -230,7 +230,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <label className="block text-sm text-gray-600">
-                      Paste your dish list
+                      Paste your item list
                     </label>
                     <select
                       value={pasteFormat}
@@ -272,7 +272,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                     className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
                   />
                   <span className="text-sm text-gray-600">
-                    {preview.length} dish{preview.length !== 1 ? 'es' : ''} found
+                    {preview.length} item{preview.length !== 1 ? 's' : ''} found
                   </span>
                 </label>
                 <button
@@ -304,7 +304,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                             value={dish.name}
                             onChange={(e) => updatePreviewDish(i, 'name', e.target.value)}
                             className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
-                            placeholder="Dish name"
+                            placeholder="Item name"
                             autoFocus
                           />
                           <input
@@ -429,7 +429,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                   disabled={importing || selected.size === 0}
                   className="px-4 py-2 text-sm text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                 >
-                  {importing ? 'Importing...' : `Import ${selected.size} Dish${selected.size !== 1 ? 'es' : ''}`}
+                  {importing ? 'Importing...' : `Import ${selected.size} Item${selected.size !== 1 ? 's' : ''}`}
                 </button>
               )}
             </div>

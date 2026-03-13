@@ -135,7 +135,7 @@ router.delete('/:id', (req, res, next) => {
   try {
     const result = db.prepare('DELETE FROM dish_library WHERE id = ?').run(req.params.id);
     if (result.changes === 0) {
-      return res.status(404).json({ error: 'Dish not found' });
+      return res.status(404).json({ error: 'Item not found' });
     }
     res.json({ success: true });
   } catch (err) {

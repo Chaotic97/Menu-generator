@@ -512,7 +512,7 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
           opacity: 0.5,
           fontStyle: 'italic',
         }}>
-          Drop dishes here
+          Drop items here
         </div>
       )}
     </div>
