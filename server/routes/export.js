@@ -36,7 +36,13 @@ router.post('/:id/pdf', async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    const template = JSON.parse(templateRow.theme_config);
+    let template;
+    try {
+      template = JSON.parse(templateRow.theme_config);
+    } catch {
+      console.error(`Corrupt theme_config for template "${menu.theme_id}"`);
+      return res.status(500).json({ error: 'Template configuration is corrupt' });
+    }
 
     // Generate PDF
     const pdfBuffer = await generatePdf(fullMenu, template, {

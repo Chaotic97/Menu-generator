@@ -28,6 +28,9 @@ app.use(morgan('short'));
 
 // CORS — restrict in production
 const corsOrigin = process.env.CORS_ORIGIN || '*';
+if (corsOrigin === '*') {
+  console.warn('WARNING: CORS_ORIGIN is not set — accepting requests from any origin. Set CORS_ORIGIN in production.');
+}
 app.use(cors({ origin: corsOrigin }));
 
 // Body parsing with size limit
@@ -50,6 +53,20 @@ const exportLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many export requests, please try again later' },
 });
+
+// Optional bearer token auth (set API_TOKEN env var to enable)
+const apiToken = process.env.API_TOKEN;
+if (apiToken) {
+  app.use('/api', (req, res, next) => {
+    const auth = req.headers.authorization;
+    if (!auth || auth !== `Bearer ${apiToken}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+  });
+} else {
+  console.warn('WARNING: API_TOKEN is not set — API endpoints are unauthenticated. Set API_TOKEN in production.');
+}
 
 // Health check
 app.get('/health', (req, res) => {

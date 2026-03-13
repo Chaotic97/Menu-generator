@@ -19,8 +19,11 @@ router.get('/', (req, res, next) => {
 router.post('/', (req, res) => {
   const { name, restaurant_name = '', template_id } = req.body;
 
-  if (!name) {
+  if (!name || typeof name !== 'string') {
     return res.status(400).json({ error: 'name is required' });
+  }
+  if (name.length > 200) {
+    return res.status(400).json({ error: 'name must be at most 200 characters' });
   }
 
   const createMenu = db.transaction(() => {
@@ -37,7 +40,12 @@ router.post('/', (req, res) => {
         // Apply template's theme_id
         db.prepare('UPDATE menus SET theme_id = ? WHERE id = ?').run(template_id, menuId);
 
-        const starterSections = JSON.parse(template.starter_sections || '[]');
+        let starterSections;
+        try {
+          starterSections = JSON.parse(template.starter_sections || '[]');
+        } catch {
+          starterSections = [];
+        }
         const insertSection = db.prepare(
           'INSERT INTO menu_sections (menu_id, name, sort_order) VALUES (?, ?, ?)'
         );
@@ -104,6 +112,32 @@ router.put('/:id', (req, res, next) => {
 
     const { name, restaurant_name, subtitle, theme_id, layout, custom_overrides } = req.body;
 
+    // Validate string lengths
+    if (name !== undefined && (typeof name !== 'string' || name.length > 200)) {
+      return res.status(400).json({ error: 'name must be a string of at most 200 characters' });
+    }
+    if (restaurant_name !== undefined && (typeof restaurant_name !== 'string' || restaurant_name.length > 200)) {
+      return res.status(400).json({ error: 'restaurant_name must be a string of at most 200 characters' });
+    }
+    if (subtitle !== undefined && (typeof subtitle !== 'string' || subtitle.length > 300)) {
+      return res.status(400).json({ error: 'subtitle must be a string of at most 300 characters' });
+    }
+
+    // Validate custom_overrides is valid JSON if provided
+    if (custom_overrides !== undefined && custom_overrides !== null) {
+      if (typeof custom_overrides === 'string') {
+        try { JSON.parse(custom_overrides); } catch {
+          return res.status(400).json({ error: 'custom_overrides must be valid JSON' });
+        }
+      } else if (typeof custom_overrides !== 'object') {
+        return res.status(400).json({ error: 'custom_overrides must be a JSON object or string' });
+      }
+    }
+
+    const overridesStr = custom_overrides !== undefined && custom_overrides !== null && typeof custom_overrides === 'object'
+      ? JSON.stringify(custom_overrides)
+      : custom_overrides;
+
     db.prepare(`
       UPDATE menus
       SET name = COALESCE(?, name),
@@ -114,7 +148,7 @@ router.put('/:id', (req, res, next) => {
           custom_overrides = COALESCE(?, custom_overrides),
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, restaurant_name, subtitle, theme_id, layout, custom_overrides, req.params.id);
+    `).run(name, restaurant_name, subtitle, theme_id, layout, overridesStr, req.params.id);
 
     const updated = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
     res.json(updated);
@@ -146,6 +180,32 @@ router.put('/:id/sections', (req, res) => {
   const { sections } = req.body;
   if (!Array.isArray(sections)) {
     return res.status(400).json({ error: 'sections must be an array' });
+  }
+
+  // Validate section and dish names
+  for (const section of sections) {
+    if (!section.name || typeof section.name !== 'string') {
+      return res.status(400).json({ error: 'Each section must have a non-empty string name' });
+    }
+    if (section.name.length > 200) {
+      return res.status(400).json({ error: `Section name too long (max 200 chars): "${section.name.slice(0, 30)}..."` });
+    }
+    if (Array.isArray(section.dishes)) {
+      for (const dish of section.dishes) {
+        if (!dish.name || typeof dish.name !== 'string') {
+          return res.status(400).json({ error: 'Each item must have a non-empty string name' });
+        }
+        if (dish.name.length > 200) {
+          return res.status(400).json({ error: `Item name too long (max 200 chars): "${dish.name.slice(0, 30)}..."` });
+        }
+        if (dish.description && dish.description.length > 1000) {
+          return res.status(400).json({ error: `Item description too long (max 1000 chars) for "${dish.name.slice(0, 30)}"` });
+        }
+        if (dish.price && String(dish.price).length > 20) {
+          return res.status(400).json({ error: `Item price too long (max 20 chars) for "${dish.name.slice(0, 30)}"` });
+        }
+      }
+    }
   }
 
   const bulkUpdate = db.transaction(() => {
@@ -221,7 +281,8 @@ router.put('/:id/sections', (req, res) => {
 
   try {
     const result = bulkUpdate();
-    res.json({ sections: result });
+    const updatedMenu = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
+    res.json({ ...updatedMenu, sections: result });
   } catch (err) {
     console.error('Sections update error:', err);
     res.status(500).json({ error: 'Failed to update sections' });

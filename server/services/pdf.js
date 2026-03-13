@@ -1,5 +1,28 @@
 import puppeteer from 'puppeteer';
 
+const MAX_CONCURRENT_PAGES = 3;
+let activePages = 0;
+const pageQueue = [];
+
+function acquirePage() {
+  return new Promise((resolve) => {
+    if (activePages < MAX_CONCURRENT_PAGES) {
+      activePages++;
+      resolve();
+    } else {
+      pageQueue.push(resolve);
+    }
+  });
+}
+
+function releasePage() {
+  activePages--;
+  if (pageQueue.length > 0) {
+    activePages++;
+    pageQueue.shift()();
+  }
+}
+
 let browser = null;
 
 async function getBrowser() {
@@ -371,6 +394,7 @@ export async function generatePdf(menu, template, options = {}) {
   const { pageSize = 'letter', bleed = false } = options;
   const html = buildHtml(menu, template);
 
+  await acquirePage();
   const b = await getBrowser();
   const page = await b.newPage();
 
@@ -403,6 +427,7 @@ export async function generatePdf(menu, template, options = {}) {
     return Buffer.from(pdfBuffer);
   } finally {
     await page.close();
+    releasePage();
   }
 }
 
