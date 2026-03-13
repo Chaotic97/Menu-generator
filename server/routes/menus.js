@@ -62,7 +62,8 @@ router.post('/', (req, res) => {
     const menu = createMenu();
     res.status(201).json(menu);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Menu creation error:', err);
+    res.status(500).json({ error: 'Failed to create menu' });
   }
 });
 
@@ -222,7 +223,8 @@ router.put('/:id/sections', (req, res) => {
     const result = bulkUpdate();
     res.json({ sections: result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Sections update error:', err);
+    res.status(500).json({ error: 'Failed to update sections' });
   }
 });
 

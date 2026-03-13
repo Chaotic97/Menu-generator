@@ -8,6 +8,9 @@ async function getBrowser() {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
+    browser.on('disconnected', () => {
+      browser = null;
+    });
   }
   return browser;
 }
@@ -49,7 +52,8 @@ function esc(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Build Google Fonts URL
@@ -373,10 +377,10 @@ export async function generatePdf(menu, template, options = {}) {
   try {
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 });
 
-    // Wait for Google Fonts to finish loading (with timeout)
+    // Wait for Google Fonts to finish loading (with timeout, proceed on failure)
     await Promise.race([
       page.evaluate(() => document.fonts.ready),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Font loading timeout')), 10000)),
+      new Promise((resolve) => setTimeout(resolve, 10000)),
     ]);
 
     const size = PAGE_SIZES[pageSize] || PAGE_SIZES.letter;
@@ -410,6 +414,3 @@ export async function closeBrowser() {
   }
 }
 
-process.on('exit', () => {
-  if (browser) browser.close().catch(() => {});
-});

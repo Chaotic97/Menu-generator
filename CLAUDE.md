@@ -47,6 +47,26 @@ Optional. Set `PLATESTACK_DB_PATH` env var to a PlateStack SQLite DB. Read-only 
 ## Database
 SQLite at `./data/menuforge.db` (auto-created on first run). Tables: `menus`, `menu_sections`, `menu_dishes`, `templates`. Schema in `server/db.js`. Bulk section/dish updates use `PUT /api/menus/:id/sections` which deletes and re-inserts within a transaction.
 
+## Deployment (Google Compute Engine)
+
+The app runs on a GCE VM with Nginx reverse proxy and PM2 process manager. SQLite works natively on the persistent disk.
+
+- **VM**: `e2-small` (2 vCPU, 2GB RAM) on Debian/Ubuntu. ~$5-7/mo.
+- **Scripts in `/deploy/`**:
+  - `setup.sh` — first-time server setup (Node.js, Chromium, Nginx, PM2)
+  - `deploy.sh` — pull latest code, build, restart PM2
+  - `nginx.conf` — reverse proxy template (replace `YOUR_DOMAIN_OR_IP`)
+- **Puppeteer**: System Chromium installed via apt. `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium`.
+- **Data**: SQLite DB lives at `/opt/menuforge/data/menuforge.db` on the persistent boot disk.
+- **Process manager**: PM2 keeps the app alive and restarts on crash/reboot.
+- **SSL**: Use `certbot --nginx -d your-domain.com` for free Let's Encrypt HTTPS.
+
+### Quick deploy
+```bash
+# On the VM:
+sudo bash /opt/menuforge/app/deploy/deploy.sh
+```
+
 ## Style Rules
 - Menu preview (`MenuPreview`): inline styles from template config only. No Tailwind, no CSS modules. No hardcoded colors, fonts, or sizes.
 - Editor UI (sidebar, controls): Tailwind utility classes.

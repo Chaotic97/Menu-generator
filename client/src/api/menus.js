@@ -1,80 +1,77 @@
 const BASE = '/api';
 
-export async function listMenus() {
-  const res = await fetch(`${BASE}/menus`);
+async function fetchJSON(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
   return res.json();
+}
+
+export async function listMenus() {
+  return fetchJSON(`${BASE}/menus`);
 }
 
 export async function getMenu(id) {
-  const res = await fetch(`${BASE}/menus/${id}`);
-  return res.json();
+  return fetchJSON(`${BASE}/menus/${id}`);
 }
 
 export async function createMenu(data) {
-  const res = await fetch(`${BASE}/menus`, {
+  return fetchJSON(`${BASE}/menus`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
 }
 
 export async function updateMenu(id, data) {
-  const res = await fetch(`${BASE}/menus/${id}`, {
+  return fetchJSON(`${BASE}/menus/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return res.json();
 }
 
 export async function deleteMenu(id) {
-  const res = await fetch(`${BASE}/menus/${id}`, { method: 'DELETE' });
-  return res.json();
+  return fetchJSON(`${BASE}/menus/${id}`, { method: 'DELETE' });
 }
 
 export async function updateSections(menuId, sections) {
-  const res = await fetch(`${BASE}/menus/${menuId}/sections`, {
+  return fetchJSON(`${BASE}/menus/${menuId}/sections`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sections }),
   });
-  return res.json();
 }
 
 export async function listTemplates() {
-  const res = await fetch(`${BASE}/templates`);
-  return res.json();
+  return fetchJSON(`${BASE}/templates`);
 }
 
 export async function getTemplate(id) {
-  const res = await fetch(`${BASE}/templates/${id}`);
-  return res.json();
+  return fetchJSON(`${BASE}/templates/${id}`);
 }
 
 // PlateStack integration
 export async function getPlateStackStatus() {
-  const res = await fetch(`${BASE}/platestack/status`);
-  return res.json();
+  return fetchJSON(`${BASE}/platestack/status`);
 }
 
 export async function getPlateStackDishes(tag) {
   const url = tag
     ? `${BASE}/platestack/dishes?tag=${encodeURIComponent(tag)}`
     : `${BASE}/platestack/dishes`;
-  const res = await fetch(url);
-  return res.json();
+  return fetchJSON(url);
 }
 
 export async function getPlateStackTags() {
-  const res = await fetch(`${BASE}/platestack/tags`);
-  return res.json();
+  return fetchJSON(`${BASE}/platestack/tags`);
 }
 
 // Dish Library
 export async function searchDishLibrary(query) {
-  const res = await fetch(`${BASE}/dish-library?q=${encodeURIComponent(query)}`);
-  return res.json();
+  return fetchJSON(`${BASE}/dish-library?q=${encodeURIComponent(query)}`);
 }
 
 export async function importDishLibrary(formDataOrText) {
@@ -83,19 +80,21 @@ export async function importDishLibrary(formDataOrText) {
       method: 'POST',
       body: formDataOrText,
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Import failed (${res.status})`);
+    }
     return res.json();
   }
-  const res = await fetch(`${BASE}/dish-library/import`, {
+  return fetchJSON(`${BASE}/dish-library/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formDataOrText),
   });
-  return res.json();
 }
 
 export async function deleteDishFromLibrary(id) {
-  const res = await fetch(`${BASE}/dish-library/${id}`, { method: 'DELETE' });
-  return res.json();
+  return fetchJSON(`${BASE}/dish-library/${id}`, { method: 'DELETE' });
 }
 
 export async function exportPdf(menuId, options = {}) {

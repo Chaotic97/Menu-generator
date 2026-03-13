@@ -36,6 +36,15 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: id, name, description, category, theme_config, preview_colors' });
   }
 
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id) || id.length > 100) {
+    return res.status(400).json({ error: 'Template id must be a lowercase slug (a-z, 0-9, hyphens) and at most 100 characters' });
+  }
+
+  const existing = db.prepare('SELECT is_builtin FROM templates WHERE id = ?').get(id);
+  if (existing && existing.is_builtin) {
+    return res.status(409).json({ error: 'Cannot overwrite a built-in template' });
+  }
+
   try {
     db.prepare(`
       INSERT INTO templates (id, name, description, category, theme_config, starter_sections, preview_colors, is_builtin)
@@ -53,7 +62,8 @@ router.post('/', (req, res) => {
     const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(id);
     res.status(201).json(template);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Template creation error:', err);
+    res.status(500).json({ error: 'Failed to create template' });
   }
 });
 

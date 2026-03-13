@@ -56,7 +56,9 @@ router.post('/', (req, res, next) => {
         updated_at = datetime('now')
     `).run(name.trim(), price, description);
 
-    const dish = db.prepare('SELECT * FROM dish_library WHERE rowid = ?').get(result.lastInsertRowid || result.changes);
+    const dish = result.lastInsertRowid
+      ? db.prepare('SELECT * FROM dish_library WHERE rowid = ?').get(result.lastInsertRowid)
+      : db.prepare('SELECT * FROM dish_library WHERE name = ? COLLATE NOCASE').get(name.trim());
     res.json(dish || { name: name.trim(), price, description });
   } catch (err) {
     next(err);

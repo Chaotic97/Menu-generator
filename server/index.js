@@ -56,8 +56,25 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '1.0.0' });
 });
 
+// Higher limit for autosave endpoint (fires frequently during editing)
+const autosaveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+// Apply appropriate rate limit per menus sub-route
+const menusLimiter = (req, res, next) => {
+  if (req.method === 'PUT' && /^\/\d+\/sections$/.test(req.path)) {
+    return autosaveLimiter(req, res, next);
+  }
+  return apiLimiter(req, res, next);
+};
+
 // API routes
-app.use('/api/menus', apiLimiter, menusRouter);
+app.use('/api/menus', menusLimiter, menusRouter);
 app.use('/api/templates', apiLimiter, templatesRouter);
 app.use('/api/export', exportLimiter, exportRouter);
 app.use('/api/platestack', apiLimiter, platestackRouter);
