@@ -55,6 +55,9 @@ export default function MenuEditor() {
   const [inlineAutocompleteDishId, setInlineAutocompleteDishId] = useState(null);
   const sidebarAcResult = useDishAutocomplete(sidebarAutocompleteQuery);
   const inlineAcResult = useDishAutocomplete(inlineAutocompleteQuery);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [libraryResults, setLibraryResults] = useState([]);
 
   const handleTouchStart = useCallback((e) => {
     if (e.touches.length === 2) {
@@ -196,6 +199,44 @@ export default function MenuEditor() {
     const section = { ...sections[sectionIndex] };
     section.dishes = section.dishes.filter((_, i) => i !== dishIndex);
     sections[sectionIndex] = section;
+    setMenu((prev) => ({ ...prev, sections }));
+    await updateSections(id, sections);
+    const fresh = await getMenu(id);
+    setMenu(fresh);
+  };
+
+  // Library browser search
+  const handleLibrarySearch = useCallback(async (q) => {
+    setLibrarySearch(q);
+    if (q.trim().length < 2) {
+      setLibraryResults([]);
+      return;
+    }
+    try {
+      const results = await searchDishLibrary(q.trim());
+      setLibraryResults(results);
+    } catch {
+      setLibraryResults([]);
+    }
+  }, []);
+
+  // Add a library dish to the current menu
+  const handleAddLibraryDish = async (libraryDish) => {
+    const sections = [...(menu.sections || [])];
+    if (sections.length === 0) {
+      // Create a default section
+      sections.push({ name: 'Menu', sort_order: 0, dishes: [] });
+    }
+    // Add to the last section
+    const lastIdx = sections.length - 1;
+    const sec = { ...sections[lastIdx] };
+    sec.dishes = [...(sec.dishes || []), {
+      name: libraryDish.name,
+      description: libraryDish.description || '',
+      price: libraryDish.price || '0',
+      sort_order: (sec.dishes || []).length,
+    }];
+    sections[lastIdx] = sec;
     setMenu((prev) => ({ ...prev, sections }));
     await updateSections(id, sections);
     const fresh = await getMenu(id);
@@ -618,12 +659,68 @@ export default function MenuEditor() {
                 + Add Section
               </button>
 
-              <button
-                onClick={() => setShowImportDishesModal(true)}
-                className="w-full mt-2 py-3 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-900 min-h-[44px]"
-              >
-                Import Dishes
-              </button>
+              {/* Dish Library */}
+              <div className="mt-4 border border-gray-200 rounded-lg">
+                <button
+                  onClick={() => setShowLibrary((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg min-h-[44px]"
+                >
+                  <span>Dish Library</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${showLibrary ? 'rotate-180' : ''}`}>
+                    <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {showLibrary && (
+                  <div className="px-3 pb-3 border-t border-gray-100">
+                    <input
+                      type="text"
+                      value={librarySearch}
+                      onChange={(e) => handleLibrarySearch(e.target.value)}
+                      className="w-full mt-2 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      placeholder="Search saved dishes..."
+                    />
+                    {libraryResults.length > 0 ? (
+                      <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                        {libraryResults.map((dish) => (
+                          <div
+                            key={dish.id}
+                            className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-gray-50 group"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-800 truncate">{dish.name}</span>
+                                {dish.price && dish.price !== '0' && (
+                                  <span className="text-xs text-gray-400 ml-1 flex-shrink-0">{dish.price}</span>
+                                )}
+                              </div>
+                              {dish.description && (
+                                <p className="text-xs text-gray-400 truncate">{dish.description}</p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleAddLibraryDish(dish)}
+                              className="opacity-0 group-hover:opacity-100 text-xs text-gray-500 hover:text-gray-900 flex-shrink-0 min-h-[32px] px-1.5 transition-opacity"
+                              title="Add to menu"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : librarySearch.length >= 2 ? (
+                      <p className="mt-2 text-xs text-gray-400 text-center py-2">No matches</p>
+                    ) : (
+                      <p className="mt-2 text-xs text-gray-400 text-center py-2">Type to search your saved dishes</p>
+                    )}
+                    <button
+                      onClick={() => setShowImportDishesModal(true)}
+                      className="w-full mt-2 py-2 text-xs text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 rounded hover:border-gray-400 min-h-[36px]"
+                    >
+                      Import from File
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {plateStackEnabled && (
                 <button

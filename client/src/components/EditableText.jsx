@@ -30,7 +30,6 @@ export default function EditableText({
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [showDropdown, setShowDropdown] = useState(true);
   const inputRef = useRef(null);
-  const wrapperRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState(null);
 
   useEffect(() => {
@@ -121,7 +120,7 @@ export default function EditableText({
       : null;
 
     return (
-      <span ref={wrapperRef} style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+      <>
         <input
           ref={inputRef}
           type="text"
@@ -180,7 +179,7 @@ export default function EditableText({
           }}
         />
         {dropdown}
-      </span>
+      </>
     );
   }
 
