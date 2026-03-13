@@ -443,6 +443,18 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
     sectionHeaderStyle.textAlign = 'left';
   }
 
+  // Text-only style for the EditableText span — no layout, borders, margins.
+  // Layout/decoration styles (textAlign, marginBottom, borderLeft, paddingLeft)
+  // stay on the wrapper div to avoid doubling them on the inner span.
+  const sectionNameTextStyle = {
+    fontFamily: fonts.heading,
+    fontSize: `${sizes.section}px`,
+    fontWeight: typography.sectionWeight,
+    letterSpacing: typography.sectionLetterSpacing,
+    textTransform: typography.sectionTransform,
+    color: colors.heading || colors.accent,
+  };
+
   const handleSectionNameEdit = interactive
     ? (newVal) => onFieldEdit('section', section.id, 'name', newVal)
     : () => {};
@@ -454,7 +466,7 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
         onChange={handleSectionNameEdit}
         disabled={!interactive}
         tag="span"
-        style={isLineThrough ? sectionHeaderStyle : sectionHeaderStyle}
+        style={sectionNameTextStyle}
       />
     );
 
@@ -670,7 +682,11 @@ export default function MenuPreview({
   const sectionIds = allSections.map((s) => `section-${s.id}`);
 
   // Build columns for multi-column layouts
-  const displaySections = visibleSections.filter((s) => s.dishes && s.dishes.length > 0);
+  // In interactive mode, show all sections (including empty ones for drop targets)
+  // In export mode, only show sections with dishes
+  const displaySections = interactive
+    ? visibleSections
+    : visibleSections.filter((s) => s.dishes && s.dishes.length > 0);
 
   let col1 = displaySections;
   let col2 = [];
@@ -813,6 +829,19 @@ export default function MenuPreview({
     titleStyle.display = 'inline-block';
   }
 
+  // Text-only style for the title EditableText — no layout/decoration
+  // (borderBottom, paddingBottom, display, textAlign, margin stay on the h1)
+  const titleTextStyle = {
+    fontFamily: fonts.title,
+    fontSize: `${sizes.title * titleScale}px`,
+    fontWeight: typography.titleWeight,
+    letterSpacing: typography.titleLetterSpacing,
+    textTransform: typography.titleTransform,
+    fontStyle: typography.titleStyle || 'normal',
+    color: colors.text,
+    lineHeight: 1.2,
+  };
+
   // ── Render column helper ───────────────────────────────
 
   const renderColumn = (sections) =>
@@ -947,7 +976,7 @@ export default function MenuPreview({
                   onChange={(val) => onFieldEdit('menu', null, 'restaurant_name', val)}
                   disabled={false}
                   tag="span"
-                  style={titleStyle}
+                  style={titleTextStyle}
                 />
               </h1>
             ) : (

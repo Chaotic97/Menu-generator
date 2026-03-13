@@ -126,7 +126,9 @@ export default function EditableText({
     // In flex: block is overridden by flex blockification — no-op.
     // In non-flex (e.g. section header span inside a div): ensures
     // the Tag takes width so `width: 100%` on the input works.
-    editContainerStyle.display = 'block';
+    if (!editContainerStyle.display || editContainerStyle.display === '-webkit-box') {
+      editContainerStyle.display = 'block';
+    }
 
     const dropdown = activeSuggestions.length > 0 && dropdownPos
       ? createPortal(
