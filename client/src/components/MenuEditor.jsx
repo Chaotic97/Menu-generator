@@ -59,28 +59,47 @@ export default function MenuEditor() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryResults, setLibraryResults] = useState([]);
 
-  const handleTouchStart = useCallback((e) => {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastPinchDist.current = Math.hypot(dx, dy);
-    }
-  }, []);
+  const previewContainerRef = useRef(null);
 
-  const handleTouchMove = useCallback((e) => {
-    if (e.touches.length === 2 && lastPinchDist.current !== null) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      const delta = dist / lastPinchDist.current;
-      lastPinchDist.current = dist;
-      setPreviewZoom((z) => Math.min(2, Math.max(0.3, z * delta)));
-      e.preventDefault();
-    }
-  }, []);
+  // Pinch-to-zoom: use non-passive DOM listeners so preventDefault() works on iOS.
+  // React's onTouchMove is passive by default, silently ignoring preventDefault().
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
 
-  const handleTouchEnd = useCallback(() => {
-    lastPinchDist.current = null;
+    const onTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDist.current = Math.hypot(dx, dy);
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches.length === 2 && lastPinchDist.current !== null) {
+        e.preventDefault(); // works because listener is { passive: false }
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const delta = dist / lastPinchDist.current;
+        lastPinchDist.current = dist;
+        setPreviewZoom((z) => Math.min(2, Math.max(0.3, z * delta)));
+      }
+    };
+
+    const onTouchEnd = () => {
+      lastPinchDist.current = null;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
   }, []);
 
   const {
@@ -856,15 +875,14 @@ export default function MenuEditor() {
 
       {/* Preview Canvas */}
       <div
+        ref={previewContainerRef}
         className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
         style={{
           backgroundImage:
             'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
           backgroundSize: '20px 20px',
+          touchAction: 'pan-x pan-y',
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {/* Spacer for mobile top bar */}
         <div className="h-14 lg:hidden" />

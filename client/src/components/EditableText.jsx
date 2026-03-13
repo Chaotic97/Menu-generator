@@ -3,15 +3,19 @@ import { createPortal } from 'react-dom';
 import AutocompleteDropdown from './AutocompleteDropdown.jsx';
 
 /**
- * Renders text as a span. On click, switches to an input for inline editing.
+ * Renders text as a span/div. On click, switches to an input for inline editing.
  * Commits on blur/Enter, reverts on Escape.
+ *
+ * IMPORTANT: This component always renders the SAME outer element (Tag) regardless
+ * of editing state. This is critical for flex layout stability — the Tag is always
+ * the flex child, and the input inside inherits text styles via CSS inheritance.
+ * Never wrap the input in an extra element or return a fragment.
  *
  * Props:
  *  - value: string
  *  - onChange: (newValue) => void
- *  - style: inline style object for both display and input
- *  - tag: 'span' | 'div' | 'h1' (what to render in display mode)
- *  - inputType: 'text' | 'textarea' (default 'text')
+ *  - style: inline style object (layout + text styles)
+ *  - tag: 'span' | 'div' | 'h1' (outer element in ALL states)
  *  - disabled: boolean (for export mode)
  *  - suggestions: optional array of {id, name, price, description}
  *  - onSelectSuggestion: optional callback (suggestion) => void
@@ -96,12 +100,34 @@ export default function EditableText({
     }
   };
 
+  // ── Disabled (export) mode: plain element, no interactivity ──
   if (disabled) {
     const Tag = tag;
     return <Tag style={style}>{value}</Tag>;
   }
 
+  const Tag = tag;
+
+  // ── Editing mode ──────────────────────────────────────────────
+  // The SAME Tag is always the outer element (the flex child).
+  // The input inherits text styles from the Tag via CSS inheritance.
+  // Layout/flex styles (maxWidth, flexShrink, etc.) stay on the Tag.
   if (editing) {
+    // Build container style: keep all layout/text styles but strip
+    // properties that would clip the input or its edit highlight.
+    const editContainerStyle = { ...style };
+    // Overflow/clamping would clip the input's box-shadow highlight
+    delete editContainerStyle.overflow;
+    delete editContainerStyle.textOverflow;
+    delete editContainerStyle.whiteSpace;
+    delete editContainerStyle.WebkitLineClamp;
+    delete editContainerStyle.WebkitBoxOrient;
+    // Force block display so the Tag always has a width for the input.
+    // In flex: block is overridden by flex blockification — no-op.
+    // In non-flex (e.g. section header span inside a div): ensures
+    // the Tag takes width so `width: 100%` on the input works.
+    editContainerStyle.display = 'block';
+
     const dropdown = activeSuggestions.length > 0 && dropdownPos
       ? createPortal(
           <AutocompleteDropdown
@@ -120,7 +146,7 @@ export default function EditableText({
       : null;
 
     return (
-      <>
+      <Tag style={editContainerStyle}>
         <input
           ref={inputRef}
           type="text"
@@ -166,24 +192,35 @@ export default function EditableText({
             }
           }}
           style={{
-            ...style,
+            // Inherit ALL text styles from the container Tag via CSS.
+            // This avoids duplicating style props and ensures the input
+            // always matches the surrounding template typography.
+            font: 'inherit',
+            color: 'inherit',
+            letterSpacing: 'inherit',
+            textTransform: 'inherit',
+            textAlign: 'inherit',
+            // Reset input browser chrome
             background: 'transparent',
             border: 'none',
             outline: 'none',
-            boxShadow: '0 0 0 1.5px rgba(59, 130, 246, 0.5)',
-            borderRadius: '2px',
-            padding: '1px 3px',
-            margin: '-1px -3px',
+            // Fill the container Tag — layout is controlled by the Tag's
+            // flex/maxWidth/flexShrink, not by the input itself.
             width: '100%',
             boxSizing: 'border-box',
+            padding: '1px 3px',
+            margin: '-1px -3px',
+            // Edit highlight
+            boxShadow: '0 0 0 1.5px rgba(59, 130, 246, 0.5)',
+            borderRadius: '2px',
           }}
         />
         {dropdown}
-      </>
+      </Tag>
     );
   }
 
-  const Tag = tag;
+  // ── Display mode ──────────────────────────────────────────────
   return (
     <Tag
       style={{

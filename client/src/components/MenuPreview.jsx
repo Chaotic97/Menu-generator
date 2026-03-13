@@ -4,6 +4,7 @@ import {
   closestCenter,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   pointerWithin,
@@ -231,8 +232,9 @@ function SortableDishRow({ dish, template, interactive, onFieldEdit, sectionId, 
               cursor: 'grab',
               opacity: 0,
               transition: 'opacity 0.15s',
-              padding: '2px',
+              padding: '6px',
               zIndex: 2,
+              touchAction: 'none',
             }}
             className="drag-handle"
           >
@@ -587,6 +589,12 @@ function ensureHoverStyles() {
     [data-interactive="true"] .drag-handle:hover {
       opacity: 1 !important;
     }
+    /* Touch devices: always show drag handles since there is no hover */
+    @media (hover: none) {
+      [data-interactive="true"] .drag-handle {
+        opacity: 0.4 !important;
+      }
+    }
   `;
   document.head.appendChild(sheet);
 }
@@ -628,10 +636,15 @@ export default function MenuPreview({
     if (interactive) ensureHoverStyles();
   }, [interactive]);
 
-  // Drag sensors — activation distance prevents accidental drags while clicking to edit
+  // Drag sensors:
+  // PointerSensor: mouse/trackpad — distance constraint prevents click/drag conflicts
+  // TouchSensor: iOS/Android — delay constraint: tap = edit, long-press = drag
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
     })
   );
 
