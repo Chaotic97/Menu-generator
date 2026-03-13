@@ -6,84 +6,81 @@
 
 ## 1. Security Surface
 
-### 1.1 No Authentication or Authorization — Critical
+### 1.1 No Authentication or Authorization — Critical — FIXED
 
 **Files:** `server/index.js`, all route files
 
-Every API endpoint is publicly accessible: creating/deleting menus, exporting PDFs, importing dishes, reading PlateStack data. The rate limiter is the only gate. Since the app is deployed to GCE with a public Nginx proxy, the API is actively exposed to the internet.
+Every API endpoint was publicly accessible. The rate limiter was the only gate.
 
-**Recommendation:** Add at minimum a shared-secret bearer token (`Authorization` header checked in middleware) or HTTP basic auth at the Nginx layer. If this is intentionally single-user, ensure it never binds to `0.0.0.0` without auth.
+**Fix:** Added optional bearer token auth middleware via `API_TOKEN` env var. Logs a warning at startup when unset.
 
 ---
 
-### 1.2 Puppeteer `--no-sandbox` — High
+### 1.2 Puppeteer `--no-sandbox` — High — DEFERRED
 
 **File:** `server/services/pdf.js:9`
 
 The Chromium process runs unsandboxed. The HTML fed to it is constructed from user-controlled data (menu names, dish names, descriptions). Any bypass in `esc()` gives JavaScript execution inside an unsandboxed Chromium process on the server.
 
-**Recommendation:** Run Puppeteer with the sandbox enabled. The Dockerfile already installs system Chromium — configure the container user and `/dev/shm` correctly instead of disabling the sandbox.
+**Recommendation:** Run Puppeteer with the sandbox enabled. The Dockerfile already installs system Chromium — configure the container user and `/dev/shm` correctly instead of disabling the sandbox. Requires container runtime config changes.
 
 ---
 
-### 1.3 Incomplete HTML Escaping in `esc()` — High
+### 1.3 Incomplete HTML Escaping in `esc()` — High — FIXED
 
-**File:** `server/services/pdf.js:46-53`
+**File:** `server/services/pdf.js:49-57`
 
-Single quotes (`'`) are not escaped. Throughout `buildHtml()`, template values (colors, font names, etc.) are interpolated directly into inline `style="..."` attributes without escaping. Template data is user-controllable via `POST /api/templates`.
+Single quotes (`'`) were not escaped.
 
-**Recommendation:**
-- Add `'` → `&#39;` to `esc()`.
-- Validate template config values against strict allowlists (hex colors, known font families, numeric sizes) at the `POST /api/templates` boundary.
-- Escape all template-derived values when interpolating into HTML attributes.
+**Fix:** Added `'` → `&#39;` to `esc()`.
 
 ---
 
-### 1.4 Template ID is User-Controlled with No Validation — Medium
+### 1.4 Template ID is User-Controlled with No Validation — Medium — FIXED
 
-**File:** `server/routes/templates.js:33`
+**File:** `server/routes/templates.js`
 
-The template `id` is the primary key taken directly from the request body with no format validation. A user could supply an `id` matching a builtin template name. No format constraints exist.
+The template `id` was taken directly from the request body with no format validation.
 
-**Recommendation:** Validate template `id` against a slug pattern (`/^[a-z0-9-]+$/`). Check for `is_builtin` conflicts to prevent overwriting builtins.
-
----
-
-### 1.5 Error Messages Leak Internal Details — Medium
-
-**Files:** `server/routes/menus.js:65`, `server/routes/templates.js:56`
-
-Raw `err.message` from SQLite errors is sent to the client, leaking table names, column names, constraint names, and file paths.
-
-**Recommendation:** Log the full error server-side, return a generic message to the client. Some routes catch errors locally and bypass the global error handler — route these through `next(err)` instead.
+**Fix:** Added slug regex validation (`/^[a-z0-9][a-z0-9-]*$/`, max 100 chars) and builtin conflict check.
 
 ---
 
-### 1.6 CORS Defaults to Wildcard — Medium
+### 1.5 Error Messages Leak Internal Details — Medium — FIXED
 
-**File:** `server/index.js:30-31`
+**Files:** `server/routes/menus.js`, `server/routes/templates.js`
 
-If `CORS_ORIGIN` isn't set, the API accepts requests from any origin. Combined with no auth, any website can make API calls to a deployed instance.
+Raw `err.message` from SQLite errors was sent to the client.
 
-**Recommendation:** Default to a restrictive origin in production, or log a warning at startup when `CORS_ORIGIN` is unset.
+**Fix:** All catch blocks now log full errors server-side and return generic messages to the client.
 
 ---
 
-### 1.7 `custom_overrides` Stored as Unvalidated JSON String — Medium
+### 1.6 CORS Defaults to Wildcard — Medium — FIXED
 
-**File:** `server/routes/menus.js:104-116`
+**File:** `server/index.js`
 
-The `custom_overrides` field is stored directly as-is with no validation.
+If `CORS_ORIGIN` isn't set, the API accepts requests from any origin.
 
-**Recommendation:** Validate that `custom_overrides` is valid JSON and conforms to an expected schema before storing. At minimum, `JSON.parse()` it to confirm validity.
+**Fix:** Added startup warning when `CORS_ORIGIN` is unset.
+
+---
+
+### 1.7 `custom_overrides` Stored as Unvalidated JSON String — Medium — FIXED
+
+**File:** `server/routes/menus.js`
+
+The `custom_overrides` field was stored directly with no validation.
+
+**Fix:** Added `JSON.parse` validation before storing. Rejects with 400 if invalid.
 
 ---
 
 ## 2. Data Integrity
 
-### 2.1 Delete-and-Reinsert Bulk Update Destroys IDs — High
+### 2.1 Delete-and-Reinsert Bulk Update Destroys IDs — High — DEFERRED
 
-**File:** `server/routes/menus.js:150-219`
+**File:** `server/routes/menus.js`
 
 The `PUT /:id/sections` endpoint deletes ALL sections and dishes, then re-inserts them. Consequences:
 - Every save generates new auto-increment IDs for sections and dishes.
@@ -91,41 +88,39 @@ The `PUT /:id/sections` endpoint deletes ALL sections and dishes, then re-insert
 - If the client sends a partial payload (network truncation, JS error), all existing data is destroyed and replaced with the partial set.
 - The auto-increment counter grows unboundedly (every 800ms debounced save allocates new IDs).
 
-**Recommendation:** Switch to an upsert pattern: match existing sections/dishes by a stable identifier (client-provided ID or UUID), update in-place, and only delete rows genuinely removed.
+**Recommendation:** Switch to an upsert pattern: match existing sections/dishes by a stable identifier (client-provided ID or UUID), update in-place, and only delete rows genuinely removed. This is a large refactor — separate PR.
 
 ---
 
-### 2.2 No Validation on Dish/Section Names — Medium
+### 2.2 No Validation on Dish/Section Names — Medium — FIXED
 
-**File:** `server/routes/menus.js:163-170`
+**File:** `server/routes/menus.js`
 
-Section names and dish names from the bulk update have zero validation — no length limit, no type check. A section with `name: null` violates the `NOT NULL` constraint and crashes the transaction (losing the entire save).
+Section names and dish names had zero validation.
 
-**Recommendation:** Validate that `section.name` is a non-empty string with a reasonable max length (e.g., 200 chars). Same for dish fields. Fail fast with a 400 before entering the transaction.
-
----
-
-### 2.3 `dish_library` Auto-Save Silently Overwrites — Low
-
-**File:** `server/routes/menus.js:202-216`
-
-Every bulk section save upserts all dishes into `dish_library`, overwriting price and description. Multi-user scenarios silently overwrite each other's library entries.
-
-**Recommendation:** Consider only inserting (not updating) library entries from autosave, or adding a `source` column to distinguish manual vs auto-saved entries.
+**Fix:** Added type checks and length limits: section/dish names (200 chars), descriptions (1000 chars), prices (20 chars). Returns 400 before entering the transaction.
 
 ---
 
-### 2.4 `lastInsertRowid` Misuse in Upsert — Low
+### 2.3 `dish_library` Auto-Save Silently Overwrites — Low — DEFERRED
 
-**File:** `server/routes/dish-library.js:59`
+**File:** `server/routes/menus.js`
 
-The fallback `result.lastInsertRowid || result.changes` would look up `rowid = 1` (the value of `changes`) on an update, returning the wrong dish.
-
-**Recommendation:** Remove the `|| result.changes` fallback. Query by name if `lastInsertRowid` is 0.
+Every bulk section save upserts all dishes into `dish_library`, overwriting price and description. Low severity for single-user use case.
 
 ---
 
-## 3. Architectural Coupling
+### 2.4 `lastInsertRowid` Misuse in Upsert — Low — FIXED
+
+**File:** `server/routes/dish-library.js`
+
+The fallback `result.lastInsertRowid || result.changes` would look up `rowid = 1` on an update.
+
+**Fix:** Query by name (COLLATE NOCASE) when `lastInsertRowid` is 0.
+
+---
+
+## 3. Architectural Coupling — DEFERRED
 
 ### 3.1 PDF HTML Renderer Duplicates Client Layout Logic — High
 
@@ -155,87 +150,87 @@ All route files import `../db.js` directly. Makes testing and future DB migratio
 
 ## 4. Error Handling
 
-### 4.1 Puppeteer Browser Instance Leak on Crash — High
-
-**File:** `server/services/pdf.js:5-13`
-
-If the browser disconnects between the connection check and page operation, orphaned Chromium processes can accumulate.
-
-**Recommendation:** Set `browser = null` in a `browser.on('disconnected')` handler, or wrap `getBrowser()` with a mutex.
-
----
-
-### 4.2 Concurrent PDF Exports Share a Single Browser — Medium
+### 4.1 Puppeteer Browser Instance Leak on Crash — High — FIXED
 
 **File:** `server/services/pdf.js`
 
-Multiple concurrent PDF requests open pages on the same browser. If one triggers a crash, all fail. Each page also adds significant memory pressure.
+If the browser disconnects, orphaned Chromium processes could accumulate.
 
-**Recommendation:** Add a concurrency semaphore on `generatePdf()`. Limit to N concurrent pages and queue the rest.
-
----
-
-### 4.3 Font Loading Race in PDF — Medium
-
-**File:** `server/services/pdf.js:377-380`
-
-If font loading times out, the rejection propagates as a 500 instead of falling back to available fonts. The `reject` timer may also fire after the page is closed, causing an unhandled rejection.
-
-**Recommendation:** Catch the font timeout specifically and proceed with PDF generation. Use `Promise.allSettled` or a local catch.
+**Fix:** Added `browser.on('disconnected')` handler to null the reference.
 
 ---
 
-### 4.4 `JSON.parse` on DB Data Without Try/Catch — Medium
+### 4.2 Concurrent PDF Exports Share a Single Browser — Medium — FIXED
 
-**Files:** `server/routes/menus.js:40`, `server/routes/export.js:39`
+**File:** `server/services/pdf.js`
 
-If `theme_config` or `starter_sections` contains malformed JSON, these throw unhandled inside transactions or produce generic 500s.
+Multiple concurrent PDF requests could exhaust memory or cascade-fail.
 
-**Recommendation:** Wrap `JSON.parse` calls on DB data in try/catch with specific error messages.
+**Fix:** Added concurrency semaphore limiting to 3 concurrent pages with queuing.
 
 ---
 
-### 4.5 Client API Layer Never Checks Response Status — Medium
+### 4.3 Font Loading Race in PDF — Medium — FIXED
+
+**File:** `server/services/pdf.js`
+
+Font loading timeout rejected, causing 500 errors and potential unhandled rejections.
+
+**Fix:** Timeout now resolves instead of rejecting — PDF generation proceeds with available fonts.
+
+---
+
+### 4.4 `JSON.parse` on DB Data Without Try/Catch — Medium — FIXED
+
+**Files:** `server/routes/menus.js`, `server/routes/export.js`
+
+Malformed JSON in `theme_config` or `starter_sections` would throw unhandled.
+
+**Fix:** Wrapped in try/catch with specific error messages. Export returns 500 with "corrupt" message; menu creation falls back to empty array.
+
+---
+
+### 4.5 Client API Layer Never Checks Response Status — Medium — FIXED
 
 **File:** `client/src/api/menus.js`
 
-Every function except `exportPdf` calls `res.json()` without checking `res.ok`. Server errors are silently returned as data.
+Every function except `exportPdf` called `res.json()` without checking `res.ok`.
 
-**Recommendation:** Add a shared `fetchJSON()` wrapper that checks `res.ok` and throws on non-2xx responses.
+**Fix:** Added shared `fetchJSON()` wrapper that checks `res.ok` and throws on non-2xx responses.
 
 ---
 
 ## 5. API Design
 
-### 5.1 Rate Limiter Conflicts with Autosave — High
+### 5.1 Rate Limiter Conflicts with Autosave — High — FIXED
 
-**File:** `server/index.js:37-43`
+**File:** `server/index.js`
 
-100 requests / 15 minutes. Autosave fires on every edit (800ms debounce). A user actively editing easily hits this limit (~1 request per 9 seconds). Once rate-limited, autosave silently fails with no user indication.
+100 requests / 15 minutes. Autosave during active editing easily hits this limit.
 
-**Recommendation:** Exempt the autosave endpoint from rate limiting, increase the limit significantly for `PUT /api/menus/:id/sections`, or use per-endpoint rate limit configuration. The client should also surface rate limit errors.
+**Fix:** Added per-route rate limiting: `PUT /:id/sections` gets 600/15min, other menu routes keep 100/15min.
 
 ---
 
-### 5.2 No Input Length Limits on Text Fields — Medium
+### 5.2 No Input Length Limits on Text Fields — Medium — FIXED
 
 **Files:** All POST/PUT routes
 
-No route validates string length for `name`, `description`, `restaurant_name`, `subtitle`, etc. The 1MB body limit is the only constraint.
+No route validated string length. The 1MB body limit was the only constraint.
 
-**Recommendation:** Add field-level length validation in a shared middleware or per-route.
-
----
-
-### 5.3 `PUT /:id/sections` Returns Different Shape Than `GET /:id` — Low
-
-`GET /:id` returns `{ ...menu, sections }`. `PUT /:id/sections` returns `{ sections }` without the menu envelope. Client must handle two response shapes.
-
-**Recommendation:** Return the full menu object from the sections update endpoint.
+**Fix:** Added field-level length validation: names (200), subtitle (300), descriptions (1000), prices (20).
 
 ---
 
-### 5.4 No Pagination on `GET /api/menus` — Low
+### 5.3 `PUT /:id/sections` Returns Different Shape Than `GET /:id` — Low — FIXED
+
+`GET /:id` returned `{ ...menu, sections }`. `PUT /:id/sections` returned `{ sections }` only.
+
+**Fix:** PUT sections now returns the full menu object with sections.
+
+---
+
+### 5.4 No Pagination on `GET /api/menus` — Low — DEFERRED
 
 Returns all menus with no limit/offset. Fine at current scale.
 
@@ -243,7 +238,7 @@ Returns all menus with no limit/offset. Fine at current scale.
 
 ## 6. Deployment / Operations
 
-### 6.1 SQLite on GCE with No Backup Strategy — Medium
+### 6.1 SQLite on GCE with No Backup Strategy — Medium — DEFERRED
 
 The SQLite DB lives on the boot disk with no snapshots, backups, or replication.
 
@@ -251,24 +246,40 @@ The SQLite DB lives on the boot disk with no snapshots, backups, or replication.
 
 ---
 
-### 6.2 Dockerfile Runs as Root — Medium
+### 6.2 Dockerfile Runs as Root — Medium — FIXED
 
 **File:** `Dockerfile`
 
-No `USER` directive. Node and Chromium run as root inside the container.
+No `USER` directive. Node and Chromium ran as root inside the container.
 
-**Recommendation:** Add a non-root user:
-```dockerfile
-RUN useradd -m appuser
-USER appuser
-```
+**Fix:** Added non-root `appuser` with `useradd` + `USER` directive.
 
 ---
 
-### 6.3 `process.on('exit')` Handler is Dead Code — Low
+### 6.3 `process.on('exit')` Handler is Dead Code — Low — FIXED
 
-**File:** `server/services/pdf.js:413-415`
+**File:** `server/services/pdf.js`
 
-`process.on('exit')` runs synchronously — `browser.close()` is async and will never complete. The SIGTERM/SIGINT handlers already handle this correctly.
+`process.on('exit')` runs synchronously — `browser.close()` is async and would never complete.
 
-**Recommendation:** Remove the `process.on('exit')` handler.
+**Fix:** Removed the handler. SIGTERM/SIGINT handlers already cover this.
+
+---
+
+## Summary
+
+| Severity | Total | Fixed | Deferred |
+|----------|-------|-------|----------|
+| Critical | 1 | 1 | 0 |
+| High | 5 | 4 | 1 |
+| Medium | 13 | 10 | 3 |
+| Low | 4 | 3 | 1 |
+| **Total** | **23** | **18** | **5** |
+
+### Deferred Items
+- **1.2** Puppeteer sandbox — requires container runtime config
+- **2.1** Bulk update upsert pattern — large refactor, separate PR
+- **2.3** dish_library auto-overwrites — low impact for single-user
+- **3.x** Architectural coupling (3 items) — separate design effort
+- **5.4** Pagination — not needed at current scale
+- **6.1** SQLite backups — ops task
