@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { generatePdf } from '../services/pdf.js';
+import mergeTemplate from '../utils/mergeTemplate.js';
 
 const router = Router();
 
@@ -42,6 +43,16 @@ router.post('/:id/pdf', async (req, res) => {
     } catch {
       console.error(`Corrupt theme_config for template "${menu.theme_id}"`);
       return res.status(500).json({ error: 'Template configuration is corrupt' });
+    }
+
+    // Apply custom overrides if present
+    if (menu.custom_overrides) {
+      try {
+        const overrides = JSON.parse(menu.custom_overrides);
+        template = mergeTemplate(template, overrides);
+      } catch {
+        // Ignore corrupt overrides, use base template
+      }
     }
 
     // Generate PDF

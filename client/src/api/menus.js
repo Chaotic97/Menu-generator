@@ -37,6 +37,10 @@ export async function deleteMenu(id) {
   return fetchJSON(`${BASE}/menus/${id}`, { method: 'DELETE' });
 }
 
+export async function duplicateMenu(id) {
+  return fetchJSON(`${BASE}/menus/${id}/duplicate`, { method: 'POST' });
+}
+
 export async function updateSections(menuId, sections) {
   return fetchJSON(`${BASE}/menus/${menuId}/sections`, {
     method: 'PUT',

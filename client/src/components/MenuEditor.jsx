@@ -7,6 +7,7 @@ import useDishAutocomplete from '../hooks/useDishAutocomplete.js';
 import AutocompleteDropdown from './AutocompleteDropdown.jsx';
 import ImportDishesModal from './ImportDishesModal.jsx';
 import templates from '../templates/index.js';
+import mergeTemplate from '../utils/mergeTemplate.js';
 
 function formatPrice(raw) {
   if (!raw || raw === '0') return '';
@@ -28,11 +29,159 @@ function SaveIndicator({ status }) {
   );
 }
 
+// ─── Font options curated from existing templates ───
+const FONT_OPTIONS = [
+  { label: 'Cinzel', value: "'Cinzel', serif", import: 'Cinzel:wght@400;500;600;700' },
+  { label: 'Cormorant Garamond', value: "'Cormorant Garamond', serif", import: 'Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Playfair Display', value: "'Playfair Display', serif", import: 'Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Libre Baskerville', value: "'Libre Baskerville', serif", import: 'Libre+Baskerville:ital,wght@0,400;0,700;1,400' },
+  { label: 'EB Garamond', value: "'EB Garamond', serif", import: 'EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Lora', value: "'Lora', serif", import: 'Lora:ital,wght@0,400;0,500;0,600;0,700;1,400' },
+  { label: 'DM Serif Display', value: "'DM Serif Display', serif", import: 'DM+Serif+Display:ital@0;1' },
+  { label: 'Inter', value: "'Inter', sans-serif", import: 'Inter:wght@300;400;500;600;700' },
+  { label: 'DM Sans', value: "'DM Sans', sans-serif", import: 'DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Montserrat', value: "'Montserrat', sans-serif", import: 'Montserrat:wght@300;400;500;600;700' },
+  { label: 'Raleway', value: "'Raleway', sans-serif", import: 'Raleway:wght@300;400;500;600;700' },
+  { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif", import: 'Space+Grotesk:wght@300;400;500;600;700' },
+  { label: 'Josefin Sans', value: "'Josefin Sans', sans-serif", import: 'Josefin+Sans:wght@300;400;500;600;700' },
+  { label: 'Crimson Pro', value: "'Crimson Pro', serif", import: 'Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Source Serif 4', value: "'Source Serif 4', serif", import: 'Source+Serif+4:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Noto Serif', value: "'Noto Serif', serif", import: 'Noto+Serif:ital,wght@0,400;0,700;1,400' },
+  { label: 'Bitter', value: "'Bitter', serif", import: 'Bitter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400' },
+  { label: 'Urbanist', value: "'Urbanist', sans-serif", import: 'Urbanist:wght@300;400;500;600;700' },
+  { label: 'Poppins', value: "'Poppins', sans-serif", import: 'Poppins:wght@300;400;500;600;700' },
+  { label: 'Work Sans', value: "'Work Sans', sans-serif", import: 'Work+Sans:wght@300;400;500;600;700' },
+];
+
+// ─── Customize sub-components ───
+function CustomizeSection({ title, group, overrides, onReset, children }) {
+  const [open, setOpen] = useState(false);
+  const hasOverrides = overrides?.[group] && Object.keys(overrides[group]).length > 0;
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-2 text-xs font-medium text-gray-600 hover:text-gray-900"
+      >
+        <span className="flex items-center gap-1.5">
+          <svg
+            className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          {title}
+          {hasOverrides && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+        </span>
+        {hasOverrides && (
+          <span
+            onClick={(e) => { e.stopPropagation(); onReset(group); }}
+            className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+          >
+            Reset
+          </span>
+        )}
+      </button>
+      {open && <div className="pl-1 pb-2 space-y-2">{children}</div>}
+    </div>
+  );
+}
+
+function ColorPicker({ label, value, isOverridden, onChange, onReset }) {
+  // Strip alpha from hex for color input (only supports #rrggbb)
+  const hexForInput = (value || '#000000').slice(0, 7);
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={`text-xs ${isOverridden ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="color"
+          value={hexForInput}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-6 h-6 rounded border border-gray-300 cursor-pointer p-0"
+        />
+        <span className="text-xs text-gray-400 font-mono w-16">{(value || '').slice(0, 7)}</span>
+        {isOverridden && (
+          <button onClick={onReset} className="text-gray-400 hover:text-red-500 text-xs">&times;</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FontPicker({ label, value, isOverridden, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={`text-xs ${isOverridden ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-xs border border-gray-300 rounded px-1.5 py-1 bg-white max-w-[140px] truncate"
+      >
+        {FONT_OPTIONS.map((f) => (
+          <option key={f.value} value={f.value}>{f.label}</option>
+        ))}
+        {/* Include current value if not in list */}
+        {!FONT_OPTIONS.find((f) => f.value === value) && (
+          <option value={value}>{value.replace(/'/g, '').split(',')[0]}</option>
+        )}
+      </select>
+    </div>
+  );
+}
+
+function SliderControl({ label, value, min, max, step = 1, suffix = '', isOverridden, onChange }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-0.5">
+        <span className={`text-xs ${isOverridden ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+          {label}
+        </span>
+        <span className="text-xs text-gray-400 font-mono">{value}{suffix}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
+      />
+    </div>
+  );
+}
+
+function DropdownControl({ label, value, options, isOverridden, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <span className={`text-xs ${isOverridden ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-xs border border-gray-300 rounded px-1.5 py-1 bg-white"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function MenuEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [menu, setMenu] = useState(null);
   const [template, setTemplate] = useState(null);
+  const [baseTemplate, setBaseTemplate] = useState(null);
+  const [customOverrides, setCustomOverrides] = useState(null);
   const [templateList, setTemplateList] = useState([]);
   const [activeTab, setActiveTab] = useState('dishes');
   const [loading, setLoading] = useState(true);
@@ -138,7 +287,18 @@ export default function MenuEditor() {
         setPlateStackEnabled(psStatus.enabled);
         // Use client-side template config (has full theme data)
         const tpl = templates[menuData.theme_id] || Object.values(templates)[0];
-        setTemplate(tpl);
+        setBaseTemplate(tpl);
+        // Apply custom overrides if saved
+        let overrides = null;
+        if (menuData.custom_overrides) {
+          try {
+            overrides = typeof menuData.custom_overrides === 'string'
+              ? JSON.parse(menuData.custom_overrides)
+              : menuData.custom_overrides;
+          } catch { /* ignore corrupt overrides */ }
+        }
+        setCustomOverrides(overrides);
+        setTemplate(mergeTemplate(tpl, overrides));
         setLoading(false);
       }
     );
@@ -148,7 +308,8 @@ export default function MenuEditor() {
   const handleTemplateSwitch = async (templateId) => {
     const tpl = templates[templateId];
     if (!tpl) return;
-    setTemplate(tpl);
+    setBaseTemplate(tpl);
+    setTemplate(mergeTemplate(tpl, customOverrides));
     setMenu((prev) => ({ ...prev, theme_id: templateId }));
     await updateMenu(id, { theme_id: templateId });
   };
@@ -166,6 +327,34 @@ export default function MenuEditor() {
     setMenu((prev) => ({ ...prev, page_size: newSize }));
     await updateMenu(id, { page_size: newSize });
   };
+
+  // Update a custom override value
+  const handleOverrideChange = useCallback((group, key, value) => {
+    setCustomOverrides((prev) => {
+      const next = { ...(prev || {}), [group]: { ...((prev || {})[group] || {}), [key]: value } };
+      setTemplate(mergeTemplate(baseTemplate, next));
+      debouncedSaveMeta({ custom_overrides: next });
+      return next;
+    });
+  }, [baseTemplate, debouncedSaveMeta]);
+
+  // Reset overrides for a specific group, or all
+  const handleResetOverrides = useCallback((group) => {
+    setCustomOverrides((prev) => {
+      if (!group) {
+        // Reset all
+        setTemplate(baseTemplate);
+        debouncedSaveMeta({ custom_overrides: null });
+        return null;
+      }
+      const next = { ...(prev || {}) };
+      delete next[group];
+      const isEmpty = Object.keys(next).length === 0;
+      setTemplate(mergeTemplate(baseTemplate, isEmpty ? null : next));
+      debouncedSaveMeta({ custom_overrides: isEmpty ? null : next });
+      return isEmpty ? null : next;
+    });
+  }, [baseTemplate, debouncedSaveMeta]);
 
   // Update metadata with debounce
   const handleMetaChange = useCallback((field, value) => {
@@ -906,6 +1095,271 @@ export default function MenuEditor() {
                     <span className="text-gray-400">{opt.desc}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* ─── Customize Panel ─── */}
+              <div className="border-t border-gray-200 pt-4 mt-2">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-medium text-gray-500">
+                    Customize
+                  </label>
+                  {customOverrides && (
+                    <button
+                      onClick={() => handleResetOverrides()}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Reset All
+                    </button>
+                  )}
+                </div>
+
+                {/* Colors */}
+                <CustomizeSection title="Colors" group="colors" overrides={customOverrides} onReset={handleResetOverrides}>
+                  {[
+                    { key: 'bg', label: 'Background' },
+                    { key: 'text', label: 'Text' },
+                    { key: 'accent', label: 'Accent' },
+                    { key: 'heading', label: 'Heading' },
+                    { key: 'muted', label: 'Muted' },
+                    { key: 'divider', label: 'Divider' },
+                  ].map(({ key, label }) => (
+                    <ColorPicker
+                      key={key}
+                      label={label}
+                      value={template.colors[key]}
+                      isOverridden={!!customOverrides?.colors?.[key]}
+                      onChange={(v) => handleOverrideChange('colors', key, v)}
+                      onReset={() => {
+                        setCustomOverrides((prev) => {
+                          const next = { ...(prev || {}) };
+                          if (next.colors) {
+                            const { [key]: _, ...rest } = next.colors;
+                            if (Object.keys(rest).length === 0) delete next.colors;
+                            else next.colors = rest;
+                          }
+                          const isEmpty = Object.keys(next).length === 0;
+                          setTemplate(mergeTemplate(baseTemplate, isEmpty ? null : next));
+                          debouncedSaveMeta({ custom_overrides: isEmpty ? null : next });
+                          return isEmpty ? null : next;
+                        });
+                      }}
+                    />
+                  ))}
+                </CustomizeSection>
+
+                {/* Fonts */}
+                <CustomizeSection title="Fonts" group="fonts" overrides={customOverrides} onReset={handleResetOverrides}>
+                  {[
+                    { key: 'title', label: 'Title' },
+                    { key: 'heading', label: 'Heading' },
+                    { key: 'body', label: 'Body' },
+                    { key: 'price', label: 'Price' },
+                  ].map(({ key, label }) => (
+                    <FontPicker
+                      key={key}
+                      label={label}
+                      value={template.fonts[key]}
+                      isOverridden={!!customOverrides?.fonts?.[key]}
+                      onChange={(v) => {
+                        // Update font family and imports
+                        const font = FONT_OPTIONS.find((f) => f.value === v);
+                        setCustomOverrides((prev) => {
+                          const next = { ...(prev || {}), fonts: { ...((prev || {}).fonts || {}), [key]: v } };
+                          // Rebuild imports from all active font choices
+                          const merged = mergeTemplate(baseTemplate, next);
+                          const usedFonts = new Set([merged.fonts.title, merged.fonts.heading, merged.fonts.body, merged.fonts.price]);
+                          const imports = [];
+                          for (const uf of usedFonts) {
+                            const fo = FONT_OPTIONS.find((f) => f.value === uf);
+                            if (fo) imports.push(fo.import);
+                          }
+                          if (imports.length > 0) next.fonts.imports = imports;
+                          setTemplate(mergeTemplate(baseTemplate, next));
+                          debouncedSaveMeta({ custom_overrides: next });
+                          return next;
+                        });
+                      }}
+                    />
+                  ))}
+                </CustomizeSection>
+
+                {/* Sizes */}
+                <CustomizeSection title="Sizes" group="sizes" overrides={customOverrides} onReset={handleResetOverrides}>
+                  {[
+                    { key: 'title', label: 'Title', min: 16, max: 60 },
+                    { key: 'subtitle', label: 'Subtitle', min: 8, max: 24 },
+                    { key: 'section', label: 'Section', min: 10, max: 30 },
+                    { key: 'dish', label: 'Item Name', min: 10, max: 24 },
+                    { key: 'desc', label: 'Description', min: 8, max: 20 },
+                    { key: 'price', label: 'Price', min: 10, max: 24 },
+                  ].map(({ key, label, min, max }) => (
+                    <SliderControl
+                      key={key}
+                      label={label}
+                      value={template.sizes[key]}
+                      min={min}
+                      max={max}
+                      suffix="px"
+                      isOverridden={!!customOverrides?.sizes?.[key]}
+                      onChange={(v) => handleOverrideChange('sizes', key, v)}
+                    />
+                  ))}
+                </CustomizeSection>
+
+                {/* Spacing */}
+                <CustomizeSection title="Spacing" group="spacing" overrides={customOverrides} onReset={handleResetOverrides}>
+                  {[
+                    { key: 'sectionGap', label: 'Section Gap', min: 8, max: 60 },
+                    { key: 'dishGap', label: 'Item Gap', min: 4, max: 30 },
+                    { key: 'pagePadding', label: 'Page Padding', min: 16, max: 80 },
+                    { key: 'headerBottom', label: 'Header Bottom', min: 8, max: 60 },
+                    { key: 'descTop', label: 'Desc. Spacing', min: 0, max: 12 },
+                  ].map(({ key, label, min, max }) => (
+                    <SliderControl
+                      key={key}
+                      label={label}
+                      value={template.spacing[key]}
+                      min={min}
+                      max={max}
+                      suffix="px"
+                      isOverridden={!!customOverrides?.spacing?.[key]}
+                      onChange={(v) => handleOverrideChange('spacing', key, v)}
+                    />
+                  ))}
+                </CustomizeSection>
+
+                {/* Typography */}
+                <CustomizeSection title="Typography" group="typography" overrides={customOverrides} onReset={handleResetOverrides}>
+                  <DropdownControl
+                    label="Title Weight"
+                    value={template.typography.titleWeight}
+                    options={[
+                      { value: 300, label: 'Light' },
+                      { value: 400, label: 'Regular' },
+                      { value: 500, label: 'Medium' },
+                      { value: 600, label: 'Semibold' },
+                      { value: 700, label: 'Bold' },
+                    ]}
+                    isOverridden={customOverrides?.typography?.titleWeight !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'titleWeight', Number(v))}
+                  />
+                  <SliderControl
+                    label="Title Spacing"
+                    value={parseFloat(template.typography.titleLetterSpacing) || 0}
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    suffix="px"
+                    isOverridden={customOverrides?.typography?.titleLetterSpacing !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'titleLetterSpacing', `${v}px`)}
+                  />
+                  <DropdownControl
+                    label="Title Transform"
+                    value={template.typography.titleTransform || 'none'}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'uppercase', label: 'Uppercase' },
+                      { value: 'capitalize', label: 'Capitalize' },
+                    ]}
+                    isOverridden={customOverrides?.typography?.titleTransform !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'titleTransform', v)}
+                  />
+                  <DropdownControl
+                    label="Section Weight"
+                    value={template.typography.sectionWeight}
+                    options={[
+                      { value: 300, label: 'Light' },
+                      { value: 400, label: 'Regular' },
+                      { value: 500, label: 'Medium' },
+                      { value: 600, label: 'Semibold' },
+                      { value: 700, label: 'Bold' },
+                    ]}
+                    isOverridden={customOverrides?.typography?.sectionWeight !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'sectionWeight', Number(v))}
+                  />
+                  <DropdownControl
+                    label="Section Transform"
+                    value={template.typography.sectionTransform || 'none'}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'uppercase', label: 'Uppercase' },
+                      { value: 'capitalize', label: 'Capitalize' },
+                    ]}
+                    isOverridden={customOverrides?.typography?.sectionTransform !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'sectionTransform', v)}
+                  />
+                  <DropdownControl
+                    label="Description Style"
+                    value={template.typography.descStyle || 'normal'}
+                    options={[
+                      { value: 'normal', label: 'Normal' },
+                      { value: 'italic', label: 'Italic' },
+                    ]}
+                    isOverridden={customOverrides?.typography?.descStyle !== undefined}
+                    onChange={(v) => handleOverrideChange('typography', 'descStyle', v)}
+                  />
+                </CustomizeSection>
+
+                {/* Decorations */}
+                <CustomizeSection title="Decorations" group="layout" overrides={customOverrides} onReset={handleResetOverrides}>
+                  <DropdownControl
+                    label="Divider Style"
+                    value={template.layout.dividerStyle}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'simple-line', label: 'Simple Line' },
+                      { value: 'thick-rule', label: 'Thick Rule' },
+                      { value: 'ornamental-line', label: 'Ornamental' },
+                      { value: 'neon-bar', label: 'Neon Bar' },
+                      { value: 'circle-line', label: 'Circle Line' },
+                      { value: 'left-accent', label: 'Left Accent' },
+                      { value: 'line-through', label: 'Line Through' },
+                    ]}
+                    isOverridden={customOverrides?.layout?.dividerStyle !== undefined}
+                    onChange={(v) => handleOverrideChange('layout', 'dividerStyle', v)}
+                  />
+                  <DropdownControl
+                    label="Header Decor"
+                    value={template.layout.headerDecor}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'single-rule', label: 'Single Rule' },
+                      { value: 'double-rule', label: 'Double Rule' },
+                      { value: 'block-accent', label: 'Block Accent' },
+                      { value: 'underline', label: 'Underline' },
+                      { value: 'top-rule', label: 'Top Rule' },
+                      { value: 'dots-and-rule', label: 'Dots & Rule' },
+                      { value: 'ornament-row', label: 'Ornament Row' },
+                    ]}
+                    isOverridden={customOverrides?.layout?.headerDecor !== undefined}
+                    onChange={(v) => handleOverrideChange('layout', 'headerDecor', v)}
+                  />
+                  <DropdownControl
+                    label="Section Alignment"
+                    value={template.layout.sectionAlignment || 'center'}
+                    options={[
+                      { value: 'left', label: 'Left' },
+                      { value: 'center', label: 'Center' },
+                    ]}
+                    isOverridden={customOverrides?.layout?.sectionAlignment !== undefined}
+                    onChange={(v) => handleOverrideChange('layout', 'sectionAlignment', v)}
+                  />
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-gray-600">Dot Leaders</span>
+                    <button
+                      onClick={() => handleOverrideChange('layout', 'dotLeader', !template.layout.dotLeader)}
+                      className={`w-8 h-5 rounded-full transition-colors relative ${
+                        template.layout.dotLeader ? 'bg-gray-900' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                          template.layout.dotLeader ? 'left-3.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </CustomizeSection>
               </div>
             </div>
           )}

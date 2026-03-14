@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listMenus, createMenu, deleteMenu, listTemplates, getMenu } from '../api/menus.js';
+import { listMenus, createMenu, deleteMenu, duplicateMenu, listTemplates, getMenu } from '../api/menus.js';
 import MenuPreview from './MenuPreview.jsx';
 import ImportDishesModal from './ImportDishesModal.jsx';
 import ItemLibraryModal from './ItemLibraryModal.jsx';
@@ -126,6 +126,16 @@ export default function MenuListView() {
     setMenus(menus.filter((m) => m.id !== id));
   };
 
+  const handleDuplicate = async (id, e) => {
+    e.stopPropagation();
+    try {
+      const newMenu = await duplicateMenu(id);
+      navigate(`/menus/${newMenu.id}`);
+    } catch (err) {
+      alert('Failed to duplicate menu: ' + err.message);
+    }
+  };
+
   const mostRecent = menus[0];
 
   return (
@@ -188,7 +198,19 @@ export default function MenuListView() {
                       </p>
                     )}
                   </div>
-                  <TemplateDots themeId={mostRecent.theme_id} />
+                  <div className="flex items-center gap-1">
+                    <TemplateDots themeId={mostRecent.theme_id} />
+                    <button
+                      onClick={(e) => handleDuplicate(mostRecent.id, e)}
+                      className="text-gray-300/60 hover:text-blue-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      title="Duplicate menu"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-2 text-xs text-gray-400">
                   {timeAgo(mostRecent.updated_at)}
@@ -363,8 +385,18 @@ export default function MenuListView() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 ml-2">
+                      <div className="flex items-center gap-1 ml-2">
                         <TemplateDots themeId={menu.theme_id} />
+                        <button
+                          onClick={(e) => handleDuplicate(menu.id, e)}
+                          className="text-gray-300/60 hover:text-blue-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          title="Duplicate menu"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        </button>
                         <button
                           onClick={(e) => handleDelete(menu.id, e)}
                           className="text-gray-300/60 hover:text-red-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"

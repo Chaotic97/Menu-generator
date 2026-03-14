@@ -139,10 +139,19 @@ router.put('/:id', (req, res, next) => {
       }
     }
 
-    const overridesStr = custom_overrides !== undefined && custom_overrides !== null && typeof custom_overrides === 'object'
-      ? JSON.stringify(custom_overrides)
-      : custom_overrides;
+    // For custom_overrides: explicit null means "clear", undefined means "don't change"
+    let overridesStr;
+    if (custom_overrides === undefined) {
+      overridesStr = undefined; // don't change
+    } else if (custom_overrides === null) {
+      overridesStr = null; // clear
+    } else if (typeof custom_overrides === 'object') {
+      overridesStr = JSON.stringify(custom_overrides);
+    } else {
+      overridesStr = custom_overrides; // already a string
+    }
 
+    // Use separate update for custom_overrides to handle null clearing
     db.prepare(`
       UPDATE menus
       SET name = COALESCE(?, name),
@@ -151,10 +160,13 @@ router.put('/:id', (req, res, next) => {
           theme_id = COALESCE(?, theme_id),
           layout = COALESCE(?, layout),
           page_size = COALESCE(?, page_size),
-          custom_overrides = COALESCE(?, custom_overrides),
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, restaurant_name, subtitle, theme_id, layout, page_size, overridesStr, req.params.id);
+    `).run(name, restaurant_name, subtitle, theme_id, layout, page_size, req.params.id);
+
+    if (custom_overrides !== undefined) {
+      db.prepare('UPDATE menus SET custom_overrides = ? WHERE id = ?').run(overridesStr, req.params.id);
+    }
 
     const updated = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
     res.json(updated);
@@ -292,6 +304,81 @@ router.put('/:id/sections', (req, res) => {
   } catch (err) {
     console.error('Sections update error:', err);
     res.status(500).json({ error: 'Failed to update sections' });
+  }
+});
+
+// Duplicate menu with all sections and dishes
+router.post('/:id/duplicate', (req, res, next) => {
+  try {
+    const source = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
+    if (!source) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+
+    const duplicate = db.transaction(() => {
+      const result = db.prepare(
+        'INSERT INTO menus (name, restaurant_name, subtitle, theme_id, layout, page_size, custom_overrides) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        `${source.name} (copy)`,
+        source.restaurant_name,
+        source.subtitle,
+        source.theme_id,
+        source.layout,
+        source.page_size,
+        source.custom_overrides
+      );
+      const newMenuId = result.lastInsertRowid;
+
+      const sections = db.prepare(
+        'SELECT * FROM menu_sections WHERE menu_id = ? ORDER BY sort_order'
+      ).all(source.id);
+
+      const insertSection = db.prepare(
+        'INSERT INTO menu_sections (menu_id, name, sort_order) VALUES (?, ?, ?)'
+      );
+      const insertDish = db.prepare(
+        'INSERT INTO menu_dishes (section_id, name, description, price, sort_order, platestack_dish_id) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      const getDishes = db.prepare(
+        'SELECT * FROM menu_dishes WHERE section_id = ? ORDER BY sort_order'
+      );
+
+      const newSections = [];
+      for (const section of sections) {
+        const secResult = insertSection.run(newMenuId, section.name, section.sort_order);
+        const newSectionId = secResult.lastInsertRowid;
+        const dishes = getDishes.all(section.id);
+        const newDishes = [];
+        for (const dish of dishes) {
+          const dishResult = insertDish.run(
+            newSectionId, dish.name, dish.description, dish.price, dish.sort_order, dish.platestack_dish_id
+          );
+          newDishes.push({
+            id: dishResult.lastInsertRowid,
+            section_id: newSectionId,
+            name: dish.name,
+            description: dish.description,
+            price: dish.price,
+            sort_order: dish.sort_order,
+            platestack_dish_id: dish.platestack_dish_id,
+          });
+        }
+        newSections.push({
+          id: newSectionId,
+          menu_id: Number(newMenuId),
+          name: section.name,
+          sort_order: section.sort_order,
+          dishes: newDishes,
+        });
+      }
+
+      const newMenu = db.prepare('SELECT * FROM menus WHERE id = ?').get(newMenuId);
+      return { ...newMenu, sections: newSections };
+    });
+
+    res.status(201).json(duplicate());
+  } catch (err) {
+    next(err);
   }
 });
 
