@@ -235,7 +235,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                     <select
                       value={pasteFormat}
                       onChange={(e) => setPasteFormat(e.target.value)}
-                      className="text-xs border border-gray-300 rounded px-2 py-1"
+                      className="text-base border border-gray-300 rounded px-2 py-1"
                     >
                       <option value="text">Auto-detect</option>
                       <option value="csv">CSV</option>
@@ -248,7 +248,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                       setError('');
                     }}
                     placeholder={'Margherita Pizza $14.95\n  Classic tomato and mozzarella\nCaesar Salad 12\nLobster Tail M.P.\n\n— or CSV —\n\nname,price,description\nMargherita Pizza,14.95,Classic tomato and mozzarella'}
-                    className="w-full h-48 px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-gray-900"
+                    className="w-full h-48 px-3 py-2 text-base font-mono border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-gray-900"
                   />
                 </div>
               )}
@@ -303,7 +303,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                             type="text"
                             value={dish.name}
                             onChange={(e) => updatePreviewDish(i, 'name', e.target.value)}
-                            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="flex-1 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                             placeholder="Item name"
                             autoFocus
                           />
@@ -311,15 +311,16 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
                             type="text"
                             value={dish.price}
                             onChange={(e) => updatePreviewDish(i, 'price', e.target.value)}
-                            className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="w-20 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                             placeholder="Price"
+                            inputMode="decimal"
                           />
                         </div>
                         <input
                           type="text"
                           value={dish.description}
                           onChange={(e) => updatePreviewDish(i, 'description', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                          className="w-full px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           placeholder="Description (optional)"
                         />
                         <div className="flex justify-end gap-2 mt-1.5">
@@ -391,7 +392,7 @@ export default function ImportDishesModal({ onClose, onImported, menuSections })
 
         {/* Footer */}
         <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
-          {preview && (
+          {preview && menuSections && (
             <label className="flex items-center gap-2 mb-3 cursor-pointer">
               <input
                 type="checkbox"

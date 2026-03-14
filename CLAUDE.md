@@ -45,7 +45,7 @@ Two-level nesting with @dnd-kit: sections are top-level sortables, dishes are ne
 Optional. Set `PLATESTACK_DB_PATH` env var to a PlateStack SQLite DB. Read-only connection for dish import. Gracefully disabled when not configured.
 
 ## Database
-SQLite at `./data/menuforge.db` (auto-created on first run). Tables: `menus`, `menu_sections`, `menu_dishes`, `templates`. Schema in `server/db.js`. Bulk section/dish updates use `PUT /api/menus/:id/sections` which deletes and re-inserts within a transaction.
+SQLite at `./data/prixie.db` (auto-created on first run). Tables: `menus`, `menu_sections`, `menu_dishes`, `templates`. Schema in `server/db.js`. Bulk section/dish updates use `PUT /api/menus/:id/sections` which deletes and re-inserts within a transaction.
 
 ## Deployment (Google Compute Engine)
 
@@ -57,14 +57,14 @@ The app runs on a GCE VM with Nginx reverse proxy and PM2 process manager. SQLit
   - `deploy.sh` — pull latest code, build, restart PM2
   - `nginx.conf` — reverse proxy template (replace `YOUR_DOMAIN_OR_IP`)
 - **Puppeteer**: System Chromium installed via apt. `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium`.
-- **Data**: SQLite DB lives at `/opt/menuforge/data/menuforge.db` on the persistent boot disk.
+- **Data**: SQLite DB lives at `/opt/prixie/data/prixie.db` on the persistent boot disk.
 - **Process manager**: PM2 keeps the app alive and restarts on crash/reboot.
 - **SSL**: Use `certbot --nginx -d your-domain.com` for free Let's Encrypt HTTPS.
 
 ### Quick deploy
 ```bash
 # On the VM:
-sudo bash /opt/menuforge/app/deploy/deploy.sh
+sudo bash /opt/prixie/app/deploy/deploy.sh
 ```
 
 ## Style Rules

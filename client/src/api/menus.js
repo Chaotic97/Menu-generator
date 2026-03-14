@@ -74,6 +74,10 @@ export async function searchDishLibrary(query) {
   return fetchJSON(`${BASE}/dish-library?q=${encodeURIComponent(query)}`);
 }
 
+export async function listAllDishLibrary() {
+  return fetchJSON(`${BASE}/dish-library?all=true`);
+}
+
 export async function importDishLibrary(formDataOrText) {
   if (formDataOrText instanceof FormData) {
     const res = await fetch(`${BASE}/dish-library/import`, {

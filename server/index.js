@@ -136,5 +136,5 @@ process.on('SIGINT', shutdown);
 // Seed templates and start
 await seedTemplates(db);
 app.listen(PORT, () => {
-  console.log(`MenuForge server running on port ${PORT}`);
+  console.log(`Prixie server running on port ${PORT}`);
 });

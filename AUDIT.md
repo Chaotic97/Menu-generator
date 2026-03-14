@@ -1,4 +1,4 @@
-# MenuForge Architectural Audit
+# Prixie Architectural Audit
 
 **Date:** 2026-03-13
 

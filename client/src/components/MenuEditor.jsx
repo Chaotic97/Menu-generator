@@ -44,6 +44,7 @@ export default function MenuEditor() {
   const [psLoading, setPsLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [collapsedCats, setCollapsedCats] = useState({});
+  const [templateSearch, setTemplateSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
   const lastPinchDist = useRef(null);
@@ -113,7 +114,7 @@ export default function MenuEditor() {
   const handleExportPdf = async () => {
     setExporting(true);
     try {
-      const blob = await exportPdf(id);
+      const blob = await exportPdf(id, { pageSize: menu.page_size || 'letter' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -157,6 +158,13 @@ export default function MenuEditor() {
     if (menu.layout === newLayout) return;
     setMenu((prev) => ({ ...prev, layout: newLayout }));
     await updateMenu(id, { layout: newLayout });
+  };
+
+  // Change page size
+  const handlePageSizeChange = async (newSize) => {
+    if (menu.page_size === newSize) return;
+    setMenu((prev) => ({ ...prev, page_size: newSize }));
+    await updateMenu(id, { page_size: newSize });
   };
 
   // Update metadata with debounce
@@ -437,7 +445,7 @@ export default function MenuEditor() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gray-100 flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     );
@@ -445,14 +453,14 @@ export default function MenuEditor() {
 
   if (!menu || !template) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gray-100 flex items-center justify-center">
         <div className="text-gray-400">Menu not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex relative">
+    <div className="min-h-[100dvh] bg-gray-100 flex relative">
       {/* Mobile sidebar overlay backdrop */}
       {sidebarOpen && (
         <div
@@ -643,6 +651,7 @@ export default function MenuEditor() {
                           }}
                           className="w-20 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           placeholder="Price"
+                          inputMode="decimal"
                         />
                         <button
                           onClick={() => handleRemoveDish(si, di)}
@@ -656,7 +665,7 @@ export default function MenuEditor() {
                         onChange={(e) => {
                           handleFieldEdit('dish', dish.id, 'description', e.target.value, section.id);
                         }}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded resize-none focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        className="w-full px-2 py-1.5 text-base border border-gray-300 rounded resize-none focus:outline-none focus:ring-1 focus:ring-gray-900"
                         placeholder="Description (optional)"
                         rows={2}
                       />
@@ -695,7 +704,7 @@ export default function MenuEditor() {
                       type="text"
                       value={librarySearch}
                       onChange={(e) => handleLibrarySearch(e.target.value)}
-                      className="w-full mt-2 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      className="w-full mt-2 px-2 py-1.5 text-base border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                       placeholder="Search saved items..."
                     />
                     {libraryResults.length > 0 ? (
@@ -753,31 +762,45 @@ export default function MenuEditor() {
           ) : (
             <div>
               {/* Template Grid — grouped by category */}
-              <label className="block text-xs font-medium text-gray-500 mb-2">
-                Template
-              </label>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="block text-xs font-medium text-gray-500 shrink-0">
+                  Template
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  className="w-full px-2 py-1 text-base border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                />
+              </div>
               <div className="mb-6 space-y-1">
                 {(() => {
                   const catLabels = { formal: 'Formal', classic: 'Classic', minimal: 'Minimal', natural: 'Natural', editorial: 'Editorial' };
                   const catOrder = ['formal', 'classic', 'minimal', 'natural', 'editorial'];
+                  const query = templateSearch.trim().toLowerCase();
                   const grouped = {};
-                  templateList.forEach((t) => {
-                    const cat = t.category || 'other';
-                    (grouped[cat] = grouped[cat] || []).push(t);
-                  });
+                  templateList
+                    .filter((t) => !query || t.name.toLowerCase().includes(query) || (t.category || '').toLowerCase().includes(query))
+                    .forEach((t) => {
+                      const cat = t.category || 'other';
+                      (grouped[cat] = grouped[cat] || []).push(t);
+                    });
                   return catOrder.filter((c) => grouped[c]?.length).map((cat) => {
-                    const isOpen = !collapsedCats[cat];
+                    const isOpen = !!query || !collapsedCats[cat];
                     const hasActive = grouped[cat].some((t) => t.id === menu.theme_id);
                     return (
                       <div key={cat}>
                         <button
-                          onClick={() => setCollapsedCats((prev) => ({ ...prev, [cat]: !prev[cat] }))}
+                          onClick={() => !query && setCollapsedCats((prev) => ({ ...prev, [cat]: !prev[cat] }))}
                           className={`w-full flex items-center justify-between px-2 py-2 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors min-h-[44px] ${hasActive && !isOpen ? 'text-gray-900' : 'text-gray-500'}`}
                         >
                           <span className="uppercase tracking-wider">{catLabels[cat] || cat}</span>
-                          <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-                            <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          {!query && (
+                            <svg width="12" height="12" viewBox="0 0 12 12" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                              <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
                         </button>
                         {isOpen && (
                           <div className="grid grid-cols-2 gap-1.5 mt-1 mb-2 ml-1">
@@ -849,13 +872,48 @@ export default function MenuEditor() {
                   </button>
                 ))}
               </div>
+
+              {/* Page Size Selector */}
+              <label className="block text-xs font-medium text-gray-500 mb-2">
+                Page Size
+              </label>
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {[
+                  { id: 'letter', label: 'Letter', desc: '8.5 × 11"', icon: (
+                    <div className="w-5 h-7 border border-current rounded-sm" />
+                  )},
+                  { id: 'half', label: 'Half Page', desc: '5.5 × 8.5"', icon: (
+                    <div className="w-5 h-6 border border-current rounded-sm" />
+                  )},
+                  { id: 'quarter', label: 'Quarter', desc: '4.25 × 5.5"', icon: (
+                    <div className="w-4 h-5 border border-current rounded-sm" />
+                  )},
+                  { id: 'tall', label: 'Tall', desc: '4.25 × 11"', icon: (
+                    <div className="w-3 h-7 border border-current rounded-sm" />
+                  )},
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handlePageSizeChange(opt.id)}
+                    className={`py-3 px-2 text-xs rounded-lg border-2 flex flex-col items-center gap-1 min-h-[44px] ${
+                      (menu.page_size || 'half') === opt.id
+                        ? 'border-gray-900 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {opt.icon}
+                    <span>{opt.label}</span>
+                    <span className="text-gray-400">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 h-14 lg:hidden">
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 h-14 lg:hidden pt-[env(safe-area-inset-top)]">
         <button
           onClick={() => navigate('/')}
           className="text-sm text-gray-500 hover:text-gray-900 min-h-[44px] flex items-center"
@@ -906,7 +964,7 @@ export default function MenuEditor() {
       </div>
 
       {/* Zoom controls — visible on mobile/tablet */}
-      <div className="fixed bottom-4 right-4 z-20 flex flex-col gap-2 lg:hidden">
+      <div className="fixed z-20 flex flex-col gap-2 lg:hidden" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))', right: '1rem' }}>
         <button
           onClick={() => setPreviewZoom((z) => Math.min(2, z + 0.15))}
           className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-lg font-bold text-gray-700 active:bg-gray-100"

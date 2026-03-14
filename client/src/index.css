@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* iOS: suppress blue tap highlight on interactive elements */
+button, a, [role="button"], [data-interactive="true"] * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS safe area support for fixed elements */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-top { padding-top: env(safe-area-inset-top); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}

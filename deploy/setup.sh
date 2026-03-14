@@ -1,5 +1,5 @@
 #!/bin/bash
-# First-time server setup for MenuForge on a fresh Debian/Ubuntu GCE instance.
+# First-time server setup for Prixie on a fresh Debian/Ubuntu GCE instance.
 # Run as root: sudo bash setup.sh
 
 set -e
@@ -22,16 +22,16 @@ echo "=== Installing PM2 ==="
 npm install -g pm2
 
 # Create app user
-echo "=== Creating menuforge user ==="
-id -u menuforge &>/dev/null || useradd -m -s /bin/bash menuforge
+echo "=== Creating prixie user ==="
+id -u prixie &>/dev/null || useradd -m -s /bin/bash prixie
 
 # Create app directory
-mkdir -p /opt/menuforge/data
-chown -R menuforge:menuforge /opt/menuforge
+mkdir -p /opt/prixie/data
+chown -R prixie:prixie /opt/prixie
 
 echo ""
 echo "=== Setup complete ==="
 echo "Next steps:"
-echo "  1. Clone your repo:  sudo -u menuforge git clone <your-repo-url> /opt/menuforge/app"
+echo "  1. Clone your repo:  sudo -u prixie git clone <your-repo-url> /opt/prixie/app"
 echo "  2. Run deploy.sh to build and start the app"
 echo "  3. (Optional) Set up nginx + SSL with: certbot --nginx -d your-domain.com"

@@ -21,10 +21,21 @@ const upload = multer({
   },
 });
 
-// Search dish library (autocomplete)
+// Search dish library (autocomplete) or list all
 router.get('/', (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
+    const all = req.query.all === 'true';
+
+    if (all) {
+      const dishes = db.prepare(
+        `SELECT id, name, price, description FROM dish_library
+         ORDER BY name COLLATE NOCASE
+         LIMIT 500`
+      ).all();
+      return res.json(dishes);
+    }
+
     if (!q || q.length < 2) {
       return res.json([]);
     }

@@ -270,11 +270,21 @@ function renderSection(section, template, isFirst) {
 }
 
 // Build full HTML page for PDF rendering
-function buildHtml(menu, template) {
-  const { colors, fonts, sizes, spacing, typography, layout } = template;
+function buildHtml(menu, template, pageSize = 'half') {
+  const sizeConfig = PAGE_SIZE_CONFIG[pageSize] || PAGE_SIZE_CONFIG.half;
+  const scaleFactor = sizeConfig.previewWidth / 500;
+  const { colors, fonts, typography, layout } = template;
+  const sizes = {};
+  for (const [k, v] of Object.entries(template.sizes)) {
+    sizes[k] = Math.round(v * scaleFactor);
+  }
+  const spacing = {};
+  for (const [k, v] of Object.entries(template.spacing)) {
+    spacing[k] = Math.round(v * scaleFactor);
+  }
   const menuLayout = menu.layout || 'single';
-  const isMultiCol = menuLayout !== 'single';
-  const menuWidth = isMultiCol ? 660 : 500;
+  const isMultiCol = menuLayout !== 'single' && sizeConfig.allowMultiCol;
+  const menuWidth = isMultiCol ? sizeConfig.previewWidthMulti : sizeConfig.previewWidth;
   const fontUrl = buildFontUrl(fonts.imports);
 
   // Filter and sort visible sections
@@ -377,22 +387,69 @@ function buildHtml(menu, template) {
 </html>`;
 }
 
-// Page size presets (in inches, converted to px at 96dpi for Puppeteer)
-const PAGE_SIZES = {
-  letter: { width: '8.5in', height: '11in' },
-  half: { width: '5.5in', height: '8.5in' },
+// Page size config
+const PAGE_SIZE_CONFIG = {
+  letter:  { width: '8.5in', height: '11in',  previewWidth: 500, previewWidthMulti: 660, allowMultiCol: true,  tileCols: 1, tileRows: 1 },
+  half:    { width: '5.5in', height: '8.5in', previewWidth: 420, previewWidthMulti: 540, allowMultiCol: true,  tileCols: 1, tileRows: 2 },
+  quarter: { width: '4.25in', height: '5.5in', previewWidth: 340, previewWidthMulti: 340, allowMultiCol: false, tileCols: 2, tileRows: 2 },
+  tall:    { width: '4.25in', height: '11in',  previewWidth: 340, previewWidthMulti: 340, allowMultiCol: false, tileCols: 2, tileRows: 1 },
 };
+
+/**
+ * Build a tiled letter-page HTML containing multiple copies of the menu.
+ */
+function buildTiledHtml(menuHtml, pageSize, template) {
+  const config = PAGE_SIZE_CONFIG[pageSize];
+  const { tileCols, tileRows } = config;
+  const fontUrl = buildFontUrl(template.fonts.imports);
+  const tiles = Array(tileCols * tileRows).fill(
+    `<div style="overflow:hidden;display:flex;align-items:flex-start;justify-content:center">${menuHtml}</div>`
+  ).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+${fontUrl ? `<link rel="stylesheet" href="${fontUrl}">` : ''}
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page { margin: 0; size: 8.5in 11in; }
+  body { background: white; }
+  .tile-grid {
+    display: grid;
+    grid-template-columns: repeat(${tileCols}, 1fr);
+    grid-template-rows: repeat(${tileRows}, 1fr);
+    width: 8.5in;
+    height: 11in;
+  }
+  .tile-grid > div {
+    border: 0.5px dashed #ccc;
+  }
+</style>
+</head><body><div class="tile-grid">${tiles}</div></body></html>`;
+}
 
 /**
  * Generate a PDF buffer from menu data and template config.
  * @param {object} menu - Full menu object with sections and dishes
  * @param {object} template - Parsed template config (theme_config from DB)
- * @param {object} options - { pageSize: 'letter'|'half', bleed: boolean }
+ * @param {object} options - { pageSize: 'letter'|'half'|'quarter'|'tall', bleed: boolean }
  * @returns {Promise<Buffer>} PDF file buffer
  */
 export async function generatePdf(menu, template, options = {}) {
-  const { pageSize = 'letter', bleed = false } = options;
-  const html = buildHtml(menu, template);
+  const { bleed = false } = options;
+  const pageSize = menu.page_size || options.pageSize || 'half';
+  const config = PAGE_SIZE_CONFIG[pageSize] || PAGE_SIZE_CONFIG.half;
+  const needsTiling = config.tileCols > 1 || config.tileRows > 1;
+
+  let html;
+  if (needsTiling) {
+    const menuHtml = buildHtml(menu, template, pageSize);
+    // Extract just the body content for tiling
+    const bodyMatch = menuHtml.match(/<body>([\s\S]*)<\/body>/);
+    const bodyContent = bodyMatch ? bodyMatch[1] : menuHtml;
+    html = buildTiledHtml(bodyContent, pageSize, template);
+  } else {
+    html = buildHtml(menu, template, pageSize);
+  }
 
   await acquirePage();
   const b = await getBrowser();
@@ -407,18 +464,15 @@ export async function generatePdf(menu, template, options = {}) {
       new Promise((resolve) => setTimeout(resolve, 10000)),
     ]);
 
-    const size = PAGE_SIZES[pageSize] || PAGE_SIZES.letter;
-    const margin = bleed ? '0' : '0.25in';
+    // Always output letter-sized PDF (tiled layouts fill the page)
+    const pdfWidth = needsTiling ? '8.5in' : config.width;
+    const pdfHeight = needsTiling ? '11in' : config.height;
+    const margin = bleed ? '0' : (needsTiling ? '0' : '0.25in');
 
     const pdfBuffer = await page.pdf({
-      width: size.width,
-      height: size.height,
-      margin: {
-        top: margin,
-        right: margin,
-        bottom: margin,
-        left: margin,
-      },
+      width: pdfWidth,
+      height: pdfHeight,
+      margin: { top: margin, right: margin, bottom: margin, left: margin },
       printBackground: true,
       preferCSSPageSize: false,
       timeout: 30000,

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Deploy/update MenuForge on the GCE instance.
+# Deploy/update Prixie on the GCE instance.
 # Run as root: sudo bash deploy.sh
 
 set -e
 
-APP_DIR="/opt/menuforge/app"
-DATA_DIR="/opt/menuforge/data"
-USER="menuforge"
+APP_DIR="/opt/prixie/app"
+DATA_DIR="/opt/prixie/data"
+USER="prixie"
 
 if [ ! -d "$APP_DIR" ]; then
   echo "Error: $APP_DIR does not exist. Clone your repo there first."
@@ -32,9 +32,9 @@ sudo -u $USER bash -c "
   export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
   export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
   cd $APP_DIR
-  pm2 delete menuforge 2>/dev/null || true
+  pm2 delete prixie 2>/dev/null || true
   DATA_DIR=$DATA_DIR PORT=3001 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    pm2 start server/index.js --name menuforge
+    pm2 start server/index.js --name prixie
   pm2 save
 "
 
@@ -45,4 +45,4 @@ echo ""
 echo "=== Deploy complete ==="
 echo "App running on port 3001"
 echo "Check status: sudo -u $USER pm2 status"
-echo "View logs:    sudo -u $USER pm2 logs menuforge"
+echo "View logs:    sudo -u $USER pm2 logs prixie"

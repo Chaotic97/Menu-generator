@@ -46,7 +46,7 @@ router.post('/:id/pdf', async (req, res) => {
 
     // Generate PDF
     const pdfBuffer = await generatePdf(fullMenu, template, {
-      pageSize: pageSize || 'letter',
+      pageSize: pageSize || 'half',
       bleed: !!bleed,
     });
 

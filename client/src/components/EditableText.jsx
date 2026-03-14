@@ -235,10 +235,10 @@ export default function EditableText({
         e.stopPropagation();
         setEditing(true);
       }}
-      onMouseEnter={(e) => {
+      onPointerEnter={(e) => {
         e.currentTarget.style.boxShadow = '0 0 0 1.5px rgba(59, 130, 246, 0.25)';
       }}
-      onMouseLeave={(e) => {
+      onPointerLeave={(e) => {
         e.currentTarget.style.boxShadow = 'none';
       }}
     >

@@ -40,20 +40,22 @@ export default function AutocompleteDropdown({
       {suggestions.map((s, i) => (
         <div
           key={s.id}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             onSelect(s);
           }}
           style={{
-            padding: '8px 12px',
+            padding: '10px 12px',
             cursor: 'pointer',
             background: i === highlightIndex ? '#f3f4f6' : 'transparent',
             borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none',
+            minHeight: '44px',
+            boxSizing: 'border-box',
           }}
-          onMouseEnter={(e) => {
+          onPointerEnter={(e) => {
             e.currentTarget.style.background = '#f3f4f6';
           }}
-          onMouseLeave={(e) => {
+          onPointerLeave={(e) => {
             e.currentTarget.style.background = i === highlightIndex ? '#f3f4f6' : 'transparent';
           }}
         >

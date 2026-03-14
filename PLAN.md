@@ -1,4 +1,4 @@
-# MenuForge — Implementation Plan
+# Prixie — Implementation Plan
 
 ## Status: Core Complete
 
@@ -165,7 +165,7 @@ CREATE INDEX idx_templates_category ON templates(category);
 
 1. **Initialize project**
    ```
-   menuforge/
+   prixie/
    ├── client/              # React (Vite)
    │   ├── src/
    │   │   ├── components/  # React components
@@ -342,7 +342,7 @@ The PDF export renders the exact same React `<MenuPreview>` component server-sid
 Two integration paths depending on deployment:
 
 **Option A — Shared SQLite (same server)**:
-MenuForge reads PlateStack's SQLite DB directly (read-only connection). Simplest if both apps run on the same machine.
+Prixie reads PlateStack's SQLite DB directly (read-only connection). Simplest if both apps run on the same machine.
 
 ```javascript
 // server/services/platestack.js
@@ -366,7 +366,7 @@ function getDishes() {
 ```
 
 **Option B — API bridge (separate servers)**:
-MenuForge calls PlateStack's API. Requires adding a read endpoint to PlateStack.
+Prixie calls PlateStack's API. Requires adding a read endpoint to PlateStack.
 
 ```
 GET /api/platestack/dishes         — all dishes with allergens and tags
@@ -885,7 +885,7 @@ Autosave. Menu editing is a flow state activity — "remember to save" is fricti
 ## CLAUDE.md for the Project
 
 ```markdown
-# MenuForge
+# Prixie
 
 Restaurant menu design web app. React + Vite frontend, Express + SQLite backend.
 
@@ -920,7 +920,7 @@ Restaurant menu design web app. React + Vite frontend, Express + SQLite backend.
 - `<MenuPreview mode="export">` strips all interactive chrome for PDF/web output.
 
 ## Database
-SQLite at `./data/menuforge.db`. Tables: menus, menu_sections, menu_dishes, templates.
+SQLite at `./data/prixie.db`. Tables: menus, menu_sections, menu_dishes, templates.
 Migrations in `/server/migrations/`. Run automatically on server start.
 
 ## PDF export

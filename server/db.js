@@ -5,7 +5,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-const dbPath = path.join(dataDir, 'menuforge.db');
+const dbPath = path.join(dataDir, 'prixie.db');
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
@@ -77,5 +77,12 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_dish_library_name
     ON dish_library(name COLLATE NOCASE);
 `);
+
+// Add page_size column if missing (migration)
+try {
+  db.exec(`ALTER TABLE menus ADD COLUMN page_size TEXT NOT NULL DEFAULT 'half'`);
+} catch {
+  // Column already exists
+}
 
 export default db;

@@ -7,7 +7,7 @@ const router = Router();
 router.get('/', (req, res, next) => {
   try {
     const menus = db.prepare(
-      'SELECT id, name, restaurant_name, theme_id, layout, updated_at FROM menus ORDER BY updated_at DESC'
+      'SELECT id, name, restaurant_name, theme_id, layout, page_size, updated_at FROM menus ORDER BY updated_at DESC'
     ).all();
     res.json(menus);
   } catch (err) {
@@ -110,7 +110,12 @@ router.put('/:id', (req, res, next) => {
       return res.status(404).json({ error: 'Menu not found' });
     }
 
-    const { name, restaurant_name, subtitle, theme_id, layout, custom_overrides } = req.body;
+    const { name, restaurant_name, subtitle, theme_id, layout, page_size, custom_overrides } = req.body;
+
+    const VALID_PAGE_SIZES = ['letter', 'half', 'quarter', 'tall'];
+    if (page_size !== undefined && !VALID_PAGE_SIZES.includes(page_size)) {
+      return res.status(400).json({ error: `page_size must be one of: ${VALID_PAGE_SIZES.join(', ')}` });
+    }
 
     // Validate string lengths
     if (name !== undefined && (typeof name !== 'string' || name.length > 200)) {
@@ -145,10 +150,11 @@ router.put('/:id', (req, res, next) => {
           subtitle = COALESCE(?, subtitle),
           theme_id = COALESCE(?, theme_id),
           layout = COALESCE(?, layout),
+          page_size = COALESCE(?, page_size),
           custom_overrides = COALESCE(?, custom_overrides),
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, restaurant_name, subtitle, theme_id, layout, overridesStr, req.params.id);
+    `).run(name, restaurant_name, subtitle, theme_id, layout, page_size, overridesStr, req.params.id);
 
     const updated = db.prepare('SELECT * FROM menus WHERE id = ?').get(req.params.id);
     res.json(updated);

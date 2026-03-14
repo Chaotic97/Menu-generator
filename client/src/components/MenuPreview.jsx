@@ -232,9 +232,11 @@ function SortableDishRow({ dish, template, interactive, onFieldEdit, sectionId, 
               cursor: 'grab',
               opacity: 0,
               transition: 'opacity 0.15s',
-              padding: '6px',
+              padding: '10px',
               zIndex: 2,
               touchAction: 'none',
+              WebkitTouchCallout: 'none',
+              WebkitUserSelect: 'none',
             }}
             className="drag-handle"
           >
@@ -472,11 +474,11 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
 
     // Attach dnd-kit listeners directly to the section header wrapper
     // so users can drag from the text itself (click = edit, drag = reorder)
-    const dragProps = interactive ? { ...listeners, style: { cursor: 'grab' } } : {};
+    const dragProps = interactive ? { ...listeners, style: { cursor: 'grab', touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } } : {};
 
     if (isLineThrough) {
       return (
-        <div {...dragProps} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', position: 'relative', ...(interactive ? { cursor: 'grab' } : {}) }}>
+        <div {...dragProps} style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', position: 'relative', ...(interactive ? { cursor: 'grab', touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } : {}) }}>
           <div style={{ flex: 1, height: '1px', background: colors.divider }} />
           {nameElement}
           <div style={{ flex: 1, height: '1px', background: colors.divider }} />
@@ -489,7 +491,7 @@ function SortableSectionBlock({ section, template, interactive, isFirst, onField
         {!isFirst && !isLeftAccent && (
           <SectionDivider style={layout.dividerStyle} colors={colors} sectionAlignment={sectionAlignment} />
         )}
-        <div {...dragProps} style={{ ...sectionHeaderStyle, ...(interactive ? { cursor: 'grab' } : {}) }}>{nameElement}</div>
+        <div {...dragProps} style={{ ...sectionHeaderStyle, ...(interactive ? { cursor: 'grab', touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } : {}) }}>{nameElement}</div>
       </div>
     );
   };
@@ -621,6 +623,15 @@ function customCollisionDetection(args) {
   return rectIntersection(args);
 }
 
+// ── Page size config (mirrors server PAGE_SIZE_CONFIG) ─────
+
+const PAGE_SIZE_CONFIG = {
+  letter:  { previewWidth: 500, previewWidthMulti: 660, allowMultiCol: true },
+  half:    { previewWidth: 420, previewWidthMulti: 540, allowMultiCol: true },
+  quarter: { previewWidth: 340, previewWidthMulti: 340, allowMultiCol: false },
+  tall:    { previewWidth: 340, previewWidthMulti: 340, allowMultiCol: false },
+};
+
 // ── Main MenuPreview component ─────────────────────────────
 
 export default function MenuPreview({
@@ -637,11 +648,22 @@ export default function MenuPreview({
   const [activeDrag, setActiveDrag] = useState(null);
   const fontUrl = buildFontUrl(template.fonts.imports);
 
-  const { colors, fonts, sizes, spacing, typography, layout } = template;
-  const menuLayout = menu.layout || 'single';
+  const pageSize = menu.page_size || 'half';
+  const sizeConfig = PAGE_SIZE_CONFIG[pageSize] || PAGE_SIZE_CONFIG.letter;
+  const { colors, fonts, sizes: baseSizes, spacing: baseSpacing, typography, layout } = template;
+  const menuLayout = sizeConfig.allowMultiCol ? (menu.layout || 'single') : 'single';
   const isMultiCol = menuLayout !== 'single';
-  const menuWidth = isMultiCol ? 660 : 500;
+  const menuWidth = isMultiCol ? sizeConfig.previewWidthMulti : sizeConfig.previewWidth;
   const interactive = mode === 'edit' && !!onSectionsChange;
+
+  // Scale sizes and spacing for smaller page sizes
+  const scaleFactor = sizeConfig.previewWidth / 500;
+  const sizes = scaleFactor === 1 ? baseSizes : Object.fromEntries(
+    Object.entries(baseSizes).map(([k, v]) => [k, Math.round(v * scaleFactor)])
+  );
+  const spacing = scaleFactor === 1 ? baseSpacing : Object.fromEntries(
+    Object.entries(baseSpacing).map(([k, v]) => [k, Math.round(v * scaleFactor)])
+  );
 
   // Inject hover styles for drag handles
   useEffect(() => {

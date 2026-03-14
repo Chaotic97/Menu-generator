@@ -44,10 +44,16 @@ export default function useAutosave(menuId, { updateSections, updateMenu }) {
     }
   }, [showSaved]);
 
+  // Track pending data so flushAll can fire saves immediately
+  const pendingSectionsRef = useRef(null);
+  const pendingMetaRef = useRef(null);
+
   const debouncedSaveSections = useCallback(
     (sections) => {
+      pendingSectionsRef.current = sections;
       clearTimeout(sectionsTimerRef.current);
       sectionsTimerRef.current = setTimeout(() => {
+        pendingSectionsRef.current = null;
         doSave(() => updateSections(menuId, sections));
       }, 800);
     },
@@ -56,8 +62,10 @@ export default function useAutosave(menuId, { updateSections, updateMenu }) {
 
   const debouncedSaveMeta = useCallback(
     (data) => {
+      pendingMetaRef.current = data;
       clearTimeout(metaTimerRef.current);
       metaTimerRef.current = setTimeout(() => {
+        pendingMetaRef.current = null;
         doSave(() => updateMenu(menuId, data));
       }, 800);
     },
@@ -67,18 +75,39 @@ export default function useAutosave(menuId, { updateSections, updateMenu }) {
   // Immediate save (for drag-and-drop reorder — user expects instant persistence)
   const saveSectionsNow = useCallback(
     (sections) => {
+      pendingSectionsRef.current = null;
       clearTimeout(sectionsTimerRef.current);
       doSave(() => updateSections(menuId, sections));
     },
     [menuId, updateSections, doSave]
   );
 
+  // Flush any pending debounced saves immediately
   const flushAll = useCallback(() => {
-    // If there are pending timers, fire them now
-    // (This is a safety net for unmount — real implementation would track pending data)
-    clearTimeout(sectionsTimerRef.current);
-    clearTimeout(metaTimerRef.current);
-  }, []);
+    if (pendingSectionsRef.current) {
+      clearTimeout(sectionsTimerRef.current);
+      const sections = pendingSectionsRef.current;
+      pendingSectionsRef.current = null;
+      doSave(() => updateSections(menuId, sections));
+    }
+    if (pendingMetaRef.current) {
+      clearTimeout(metaTimerRef.current);
+      const data = pendingMetaRef.current;
+      pendingMetaRef.current = null;
+      doSave(() => updateMenu(menuId, data));
+    }
+  }, [menuId, updateSections, updateMenu, doSave]);
+
+  // Flush pending saves when page becomes hidden (iOS kills background tabs)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushAll();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [flushAll]);
 
   return {
     saveStatus,
