@@ -99,6 +99,7 @@ app.use('/api/dish-library', apiLimiter, dishLibraryRouter);
 
 // Serve static frontend in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
+console.log('Static files from:', clientDist);
 app.use(express.static(clientDist));
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
