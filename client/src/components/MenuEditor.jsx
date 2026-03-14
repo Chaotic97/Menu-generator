@@ -196,7 +196,13 @@ export default function MenuEditor() {
   const [templateSearch, setTemplateSearch] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const panOffsetStart = useRef({ x: 0, y: 0 });
+  const spaceHeld = useRef(false);
   const lastPinchDist = useRef(null);
+  const lastPinchCenter = useRef(null);
   const [showImportDishesModal, setShowImportDishesModal] = useState(false);
   const [sidebarAutocompleteQuery, setSidebarAutocompleteQuery] = useState('');
   const [sidebarAutocompleteDishId, setSidebarAutocompleteDishId] = useState(null);
@@ -211,44 +217,175 @@ export default function MenuEditor() {
 
   const previewContainerRef = useRef(null);
 
-  // Pinch-to-zoom: use non-passive DOM listeners so preventDefault() works on iOS.
-  // React's onTouchMove is passive by default, silently ignoring preventDefault().
+  // ─── Canvas interactions: wheel zoom, space/middle-click pan, pinch-zoom+pan ───
   useEffect(() => {
     const el = previewContainerRef.current;
     if (!el) return;
 
+    // Wheel zoom (toward cursor)
+    const onWheel = (e) => {
+      // Only zoom when Ctrl/Meta held (trackpad pinch sends ctrl+wheel) or plain wheel
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+
+      setPreviewZoom((prevZoom) => {
+        const newZoom = Math.min(4, Math.max(0.15, prevZoom * zoomFactor));
+        const scale = newZoom / prevZoom;
+        // Adjust pan so the point under cursor stays fixed
+        setPanOffset((prev) => ({
+          x: cursorX - scale * (cursorX - prev.x),
+          y: cursorY - scale * (cursorY - prev.y),
+        }));
+        return newZoom;
+      });
+    };
+
+    // Space key for pan mode
+    const onKeyDown = (e) => {
+      if (e.code === 'Space' && !e.repeat && e.target === document.body) {
+        e.preventDefault();
+        spaceHeld.current = true;
+        el.style.cursor = 'grab';
+      }
+    };
+    const onKeyUp = (e) => {
+      if (e.code === 'Space') {
+        spaceHeld.current = false;
+        if (!isPanning.current) el.style.cursor = '';
+      }
+    };
+
+    // Mouse pan (middle button or space+left)
+    const onMouseDown = (e) => {
+      if (e.button === 1 || (e.button === 0 && spaceHeld.current)) {
+        e.preventDefault();
+        isPanning.current = true;
+        panStart.current = { x: e.clientX, y: e.clientY };
+        setPanOffset((prev) => { panOffsetStart.current = prev; return prev; });
+        el.style.cursor = 'grabbing';
+      }
+    };
+    const onMouseMove = (e) => {
+      if (!isPanning.current) return;
+      const dx = e.clientX - panStart.current.x;
+      const dy = e.clientY - panStart.current.y;
+      setPanOffset({
+        x: panOffsetStart.current.x + dx,
+        y: panOffsetStart.current.y + dy,
+      });
+    };
+    const onMouseUp = () => {
+      if (isPanning.current) {
+        isPanning.current = false;
+        el.style.cursor = spaceHeld.current ? 'grab' : '';
+      }
+    };
+
+    // Touch: 1-finger pan, 2-finger pinch+pan
+    let singleTouchStart = null;
+    let singleTouchPanStart = null;
+
     const onTouchStart = (e) => {
       if (e.touches.length === 2) {
+        // Pinch start
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         lastPinchDist.current = Math.hypot(dx, dy);
+        lastPinchCenter.current = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+        singleTouchStart = null;
+      } else if (e.touches.length === 1) {
+        // Check if touch is on an interactive element (input, editable, drag handle)
+        const target = e.target;
+        const isInteractive = target.closest('[contenteditable]') ||
+          target.closest('input') || target.closest('textarea') ||
+          target.closest('[data-drag-handle]') || target.closest('button');
+        if (!isInteractive) {
+          singleTouchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          setPanOffset((prev) => { singleTouchPanStart = prev; return prev; });
+        } else {
+          singleTouchStart = null;
+        }
       }
     };
 
     const onTouchMove = (e) => {
       if (e.touches.length === 2 && lastPinchDist.current !== null) {
-        e.preventDefault(); // works because listener is { passive: false }
+        e.preventDefault();
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
-        const delta = dist / lastPinchDist.current;
+        const center = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+        const zoomFactor = dist / lastPinchDist.current;
+        const panDx = center.x - lastPinchCenter.current.x;
+        const panDy = center.y - lastPinchCenter.current.y;
+
         lastPinchDist.current = dist;
-        setPreviewZoom((z) => Math.min(2, Math.max(0.3, z * delta)));
+        lastPinchCenter.current = center;
+
+        const rect = el.getBoundingClientRect();
+        const cx = center.x - rect.left;
+        const cy = center.y - rect.top;
+
+        setPreviewZoom((prevZoom) => {
+          const newZoom = Math.min(4, Math.max(0.15, prevZoom * zoomFactor));
+          const scale = newZoom / prevZoom;
+          setPanOffset((prev) => ({
+            x: cx - scale * (cx - prev.x) + panDx,
+            y: cy - scale * (cy - prev.y) + panDy,
+          }));
+          return newZoom;
+        });
+      } else if (e.touches.length === 1 && singleTouchStart && singleTouchPanStart) {
+        // Single-finger pan — only after a small threshold to avoid blocking taps
+        const dx = e.touches[0].clientX - singleTouchStart.x;
+        const dy = e.touches[0].clientY - singleTouchStart.y;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+          e.preventDefault();
+          setPanOffset({
+            x: singleTouchPanStart.x + dx,
+            y: singleTouchPanStart.y + dy,
+          });
+        }
       }
     };
 
     const onTouchEnd = () => {
       lastPinchDist.current = null;
+      lastPinchCenter.current = null;
+      singleTouchStart = null;
+      singleTouchPanStart = null;
     };
 
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
     return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
   }, []);
 
@@ -300,6 +437,14 @@ export default function MenuEditor() {
         setCustomOverrides(overrides);
         setTemplate(mergeTemplate(tpl, overrides));
         setLoading(false);
+        // Center the menu in the viewport after first render
+        requestAnimationFrame(() => {
+          const el = previewContainerRef.current;
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            setPanOffset({ x: Math.max(32, rect.width * 0.1), y: 32 + (window.innerWidth < 1024 ? 56 : 0) });
+          }
+        });
       }
     );
   }, [id]);
@@ -1385,60 +1530,88 @@ export default function MenuEditor() {
         </button>
       </div>
 
-      {/* Preview Canvas */}
+      {/* Preview Canvas — Photoshop-style pan/zoom workspace */}
       <div
         ref={previewContainerRef}
-        className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8"
+        className="flex-1 overflow-hidden relative"
         style={{
           backgroundImage:
             'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
           backgroundSize: '20px 20px',
-          touchAction: 'pan-x pan-y',
+          backgroundPosition: `${panOffset.x % 20}px ${panOffset.y % 20}px`,
+          touchAction: 'none',
         }}
       >
         {/* Spacer for mobile top bar */}
         <div className="h-14 lg:hidden" />
         <div
           style={{
-            transform: `scale(${previewZoom})`,
-            transformOrigin: 'top center',
-            transition: lastPinchDist.current !== null ? 'none' : 'transform 0.15s ease',
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
+            transformOrigin: '0 0',
+            position: 'absolute',
+            left: 0,
+            top: 0,
           }}
         >
-          <MenuPreview
-            menu={menu}
-            template={template}
-            mode="edit"
-            onSectionsChange={handleSectionsChange}
-            onFieldEdit={handleFieldEdit}
-            dishSuggestions={dishSuggestions}
-            onDishSelectSuggestion={handleDishSelectSuggestion}
-          />
+          <div style={{ padding: '2rem' }}>
+            <MenuPreview
+              menu={menu}
+              template={template}
+              mode="edit"
+              onSectionsChange={handleSectionsChange}
+              onFieldEdit={handleFieldEdit}
+              dishSuggestions={dishSuggestions}
+              onDishSelectSuggestion={handleDishSelectSuggestion}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Zoom controls — visible on mobile/tablet */}
-      <div className="fixed z-20 flex flex-col gap-2 lg:hidden" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))', right: '1rem' }}>
+      {/* Zoom controls */}
+      <div className="fixed z-20 flex flex-col gap-2" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))', right: '1rem' }}>
         <button
-          onClick={() => setPreviewZoom((z) => Math.min(2, z + 0.15))}
+          onClick={() => {
+            const container = previewContainerRef.current;
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+            setPreviewZoom((z) => {
+              const newZ = Math.min(4, z * 1.25);
+              const scale = newZ / z;
+              setPanOffset((p) => ({ x: cx - scale * (cx - p.x), y: cy - scale * (cy - p.y) }));
+              return newZ;
+            });
+          }}
           className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-lg font-bold text-gray-700 active:bg-gray-100"
         >
           +
         </button>
         <button
-          onClick={() => setPreviewZoom((z) => Math.max(0.3, z - 0.15))}
+          onClick={() => {
+            const container = previewContainerRef.current;
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+            setPreviewZoom((z) => {
+              const newZ = Math.max(0.15, z / 1.25);
+              const scale = newZ / z;
+              setPanOffset((p) => ({ x: cx - scale * (cx - p.x), y: cy - scale * (cy - p.y) }));
+              return newZ;
+            });
+          }}
           className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-lg font-bold text-gray-700 active:bg-gray-100"
         >
           −
         </button>
-        {previewZoom !== 1 && (
-          <button
-            onClick={() => setPreviewZoom(1)}
-            className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-xs font-medium text-gray-500 active:bg-gray-100"
-          >
-            1:1
-          </button>
-        )}
+        <button
+          onClick={() => { setPreviewZoom(1); setPanOffset({ x: 0, y: 0 }); }}
+          className="w-11 h-11 bg-white border border-gray-300 rounded-full shadow-md flex items-center justify-center text-xs font-medium text-gray-500 active:bg-gray-100"
+          title="Reset view"
+        >
+          {Math.round(previewZoom * 100)}%
+        </button>
       </div>
 
       {/* Item Library Import Modal */}
